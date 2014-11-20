@@ -1,14 +1,11 @@
 Run a quality control workflow on mzML files from mass spec based proteomics.
 
-Execute `qcprot` with the working directory as parameter. This directory must
-contain
+Execute ``qcprot`` with the working directory as parameter. This directory must
+contain a config file called ``config.json``.
 
-- mzML : A directory that contains the mzML files
-- config.json : a json file with the parameters for the qc workflow.
+Results will be written to a directory ``results`` in the workdir.
 
-Results will be written to a directory `results` in the workdir.
-
-Excample config file:
+Example config file::
 
     {
         "REF" : "uniprot_sprot_101104_human_concat.fasta",
