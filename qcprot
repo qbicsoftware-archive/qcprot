@@ -1,0 +1,39 @@
+#!/bin/bash
+
+if [ ! $# -eq 1 ] ; then
+	echo "Usage: qcprot <workdir>" 1>&2
+	exit 1
+fi
+
+if [ ! -d $1 ] ; then
+	echo "Invalid workdir: $1" 1>&2
+	exit 1
+fi
+
+# fail if any command exits with nonzero
+set -e
+
+WORKDIR=$(readlink -f $1)
+# Directory where the script is stored.
+# See https://stackoverflow.com/questions/59895/
+SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+
+if [ ! -f ${SCRIPTDIR}/Snakefile ] ; then
+	echo "Could not find snakefile in ${SCRIPTDIR}" 1>&2
+	exit 1
+fi
+
+echo "loading module files..."
+
+module load lib/openms/1.11
+module load bio/xtandem
+module load bio/myrimatch
+module load math/R
+
+echo "module files loaded."
+
+# Anaconda is a python distribution (http://continuum.io/)
+# Snakemake must be installed.
+export PATH=/lustre_cfc/software/qbic/anaconda3/bin:$PATH
+
+snakemake -T --snakefile ${SCRIPTDIR}/Snakefile --config R_home=${SCRIPTDIR}/r_scripts

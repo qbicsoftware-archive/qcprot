@@ -5,6 +5,7 @@ import os
 with open("config.json") as f:
     CONFIG = json.load(f)
 
+
 def file_name_and_ext(path):
     head, tail = os.path.split(path)
     if not tail:
@@ -44,7 +45,7 @@ INPUT_FILES = CONFIG["input_files"]
 RESULT_FILES = createOutputFileNames("results/",INPUT_FILES,".qcML")
 RESULT_FILE = "results/qcmlresult.idXML"
 #prepended module load to all shell commands 
-shell.prefix(CONFIG["shell_prefix"] + ";" )
+shell.prefix(CONFIG["shell_prefix"] + "; " )
 
 rule all:
     input: RESULT_FILES
@@ -72,15 +73,17 @@ rule XTandemAdapter:
         for inp, outp in zip(input,output):
             shell("{rules.XTandemAdapter.name} -in {inp} -out {outp} -database {input.REF} -threads {threads}")
 
-OMSSAOutput = createOutputFileNames("OMSSAAdapter/", INPUT_FILES, ".idXML")
+"""
+MyriMatchOutput = createOutputFileNames("MyriMatchAdapter/", INPUT_FILES, ".idXML")
 
-rule OMSSAAdapter:
+rule MyrimatchAdapter:
     input: INPUT_FILES, REF = rules.DecoyDatabase.output
-    output: OMSSAOutput
+    output: MyriMatchOutput
     threads: 1
     run:
         for inp, outp in zip(input,output):
-            shell("OMSSAAdapter -in {inp} -out {outp} -database {input.REF} -threads {threads} -omssa_executable /home/wojnar/QBiC/Software/omssa-2.1.9.linux/omssacl")
+            shell("MyriMatchAdapter -in {inp} -out {outp} -database {input.REF}")
+"""
 
 IDPepOfXtandemOutput = createOutputFileNames("IDPepOfXTandem/", XTandemOutput,".idXML")
 
@@ -91,28 +94,29 @@ rule IDPEPOfXTandem:
         for inp, outp in zip(input,output):
             shell("IDPosteriorErrorProbability -in {inp} -out {outp} -output_name IDPepOfXTandem/delete.txt -threads {threads}")
 
-IDPepOfOmssaOutput = createOutputFileNames("IDPepOfOmssa/", OMSSAOutput,".idXML")
+"""
+IDPepOfMyriMatchOutput = createOutputFileNames("IDPepOfMyriMatch/", MyriMatchOutput,".idXML")
 
-rule IDPEPOfOmssa:
-    input: OMSSAOutput
-    output: IDPepOfOmssaOutput
+rule IDPEPOfMyriMatch:
+    input: MyriMatchOutput
+    output: IDPepOfMyriMatchOutput
     run:
         for inp, outp in zip(input,output):
-            shell("IDPosteriorErrorProbability -in {inp} -out {outp} -output_name IDPepOfOmssa/delete.txt -threads {threads}")
-
+            shell("IDPosteriorErrorProbability -in {inp} -out {outp} -output_name IDPepOfMyriMatch/delete.txt -threads {threads}")
 
 IDMergerOutput = createOutputFileNames("IDMerger/",INPUT_FILES, ".idXML")
 rule IDMerger:
-    input: mergeIDPepOutput([IDPepOfXtandemOutput, IDPepOfOmssaOutput])
+    input: mergeIDPepOutput([IDPepOfXtandemOutput, IDPepOfMyriMatchOuput])
     output: IDMergerOutput
     threads: 1
     run:
         for inp,outp in zip(input,output):
             shell("IDMerger -in {inp} -out {outp} -threads {threads}")
+"""
 
-ConsensusIDOutput = createOutputFileNames("ConsensusID/",IDMergerOutput, ".idXML")
+ConsensusIDOutput = createOutputFileNames("ConsensusID/",IDPepOfXtandemOutput, ".idXML")
 rule ConsensusID:
-    input: IDMergerOutput
+    input: IDPepOfXtandemOutput
     output: ConsensusIDOutput
     threads: 1
     run:
@@ -199,16 +203,16 @@ fractionalMassOutput = createOutputFileNames("fractionalMass/",QCExtractorFracti
 rule fractionalMass:
     input: QCExtractorFractionalMassOutput
     output: fractionalMassOutput
-    params: theo_masses=os.path.join(CONFIG["R_home"],"theoretical_masses.txt"),r_script=os.path.join(CONFIG["R_home"],"fractionalMass.R ")
+    params: theo_masses=os.path.join(config["R_home"],"theoretical_masses.txt"),r_script=os.path.join(config["R_home"],"fractionalMass.R ")
     run:
         for inp, outp in zip(input,output):
-            shell("Rscript {param.r_script} {inp} {outp} {params.theo_masses}")
+            shell("Rscript {params.r_script} {inp} {outp} {params.theo_masses}")
 
 massAccOutput = createOutputFileNames("massAcc/",QCExtractorIDR38Output,".png")
 rule massAcc:
     input: QCExtractorIDR38Output
     output: massAccOutput
-    params: r_script=os.path.join(CONFIG["R_home"],"MassAcc.R")
+    params: r_script=os.path.join(config["R_home"],"MassAcc.R")
     run:
         for inp, outp in zip(input, output):
             shell("Rscript {params.r_script} {inp} {outp}")
@@ -217,7 +221,7 @@ massErrOutput = createOutputFileNames("massErr/",QCExtractorIDR38Output,".png")
 rule massErr:
     input: QCExtractorIDR38Output
     output: massErrOutput
-    params: r_script=os.path.join(CONFIG["R_home"],"MassError.R")
+    params: r_script=os.path.join(config["R_home"],"MassError.R")
     run:
         for inp, outp in zip(input, output):
             shell("Rscript {params.r_script} {inp} {outp}")
@@ -226,7 +230,7 @@ ticOutput = createOutputFileNames("tic/",QCExtractorFractionalMassOutput,".png")
 rule tic:
     input: QCExtractorTICOutput
     output: ticOutput
-    params: r_script=os.path.join(CONFIG["R_home"],"TIC.R")
+    params: r_script=os.path.join(config["R_home"],"TIC.R")
     run:
         for inp, outp in zip(input, output):
             shell("Rscript {params.r_script} {inp} {outp}")
@@ -239,7 +243,7 @@ idRatioOutput = createOutputFileNames("idRatio/",QCExtractorIDR38Output,".png")
 rule idRatio:
     input: idr38 = QCExtractorIDR38Output, idr44 = QCExtractorIDR44Output
     output: idRatioOutput
-    params: r_script=os.path.join(CONFIG["R_home"], "IDRatio.R")
+    params: r_script=os.path.join(config["R_home"], "IDRatio.R")
     run:
         for idr38, idr44, outp in zip(input.idr38, input.idr44, output):
             shell("Rscript {params.r_script} {idr38} {idr44} {outp}")
