@@ -1,0 +1,12 @@
+{
+"REF" : "/home-link/iiswo01/databases/FASTA/uniprot_sprot_101104_human_concat.fasta",
+"input_files" : ["mzML/velos005614.mzML" , "mzML/velos005615.mzML"], 
+"precursor_tolerance" : "15",                                                                                                                                                                                                                                                  
+"precursor_tolerance_unit" : "ppm",                                                                                                                                                                                                                                            
+"fragment_tolerance" : "25",                                                                                                                                                                                                                                                   
+"fragment_tolerance_unit" : "ppm",                                                                                                                                                                                                                                             
+"retention_time_tolerance": "60",                                                                                                                                                                                                                                              
+"retention_time_tolerance_unit" : "sec",                                                                                                                                                                                                                       
+"shell_prefix" : "module load lib/openms/1.11 math/R ;",
+"R_home" : "~/scripts/R_scripts/"
+}
