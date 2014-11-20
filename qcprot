@@ -5,6 +5,11 @@ if [ ! $# -eq 1 ] ; then
 	exit 1
 fi
 
+if [ $1 = "-h" ] || [ $1 = "--help" ] ; then
+	echo "Usage: qcprot <workdir>"
+	exit 0
+fi
+
 if [ ! -d $1 ] ; then
 	echo "Invalid workdir: $1" 1>&2
 	exit 1
@@ -36,4 +41,7 @@ echo "module files loaded."
 # Snakemake must be installed.
 export PATH=/lustre_cfc/software/qbic/anaconda3/bin:$PATH
 
-snakemake -T --snakefile ${SCRIPTDIR}/Snakefile --config R_home=${SCRIPTDIR}/r_scripts
+export R_HOME=${SCRIPTDIR}/r_scripts
+
+#snakemake -T --snakefile ${SCRIPTDIR}/Snakefile --config R_home=${WORKDIR}/r_scripts
+snakemake -T --snakefile ${SCRIPTDIR}/Snakefile --cluster "ssh u-003-scfe03 'qsub -l nodes=1:ppn=1:cfc -w ${WORKDIR}' " --jobscript ${SCRIPTDIR}/jobscript.sh --config R_home=${WORKDIR}/r_scripts -j 4

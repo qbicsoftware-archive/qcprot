@@ -5,6 +5,7 @@ import os
 with open("config.json") as f:
     CONFIG = json.load(f)
 
+config['R_home'] = '/lustre_cfc/software/qbic/qcprot/r_scripts'
 
 def file_name_and_ext(path):
     head, tail = os.path.split(path)
