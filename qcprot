@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ ! $# -lt 2 ] ; then
+if [ $# -lt 2 ] ; then
 	echo "Usage: qcprot <workdir> [Snakemake args]" 1>&2
 	exit 1
 fi
@@ -28,14 +28,10 @@ if [ ! -f ${SCRIPTDIR}/Snakefile ] ; then
 	exit 1
 fi
 
-echo "loading module files..."
-
 module load lib/openms/1.11
 module load bio/xtandem
 module load bio/myrimatch
 module load math/R
-
-echo "module files loaded."
 
 # Anaconda is a python distribution (http://continuum.io/)
 # Snakemake must be installed.

@@ -1,4 +1,3 @@
-import json
 import os
 import sys
 import subprocess
@@ -10,6 +9,7 @@ from datetime import datetime
 from os.path import join as pjoin
 from os.path import exists as pexists
 from xml.etree.ElementTree import ElementTree
+import hashlib
 
 configfile: "config.json"
 
@@ -58,7 +58,7 @@ class OpenMS:
                     if not len(ini) == 1:
                         raise ValueError("Invalid params.")
                     ini = ini[0]
-                command += ['-ini', json.loads(str(ini))['path']]
+                command += ['-ini', str(ini).split(',', 1)[1]]
             command += extra_args
 
             log_std = pjoin(self._log_dir, logfile + '.out')
@@ -77,11 +77,10 @@ openms = OpenMS(OPENMS_BIN, INI_PATH, 'logs')
 def params(name):
     path = pjoin(INI_PATH, name + '.ini')
     try:
-        with open(path, 'r') as f:
+        with open(path, 'rb') as f:
             # TODO replace makes sure that there are no wildcards
             # in the file content. This is not exactly clean ;-)
-            data = {'path': path, 'content': f.read().replace('{', '[')}
-            return json.dumps(data, sort_keys=True)
+            return "{},{}".format(hashlib.sha256(f.read()).hexdigest(), path)
     except FileNotFoundError as e:
         raise ValueError("ini file '%s' not found" % path) from e
 
@@ -90,6 +89,9 @@ INPUT_FILES = []
 for name in os.listdir('mzml'):
     if name.lower().endswith('.mzml'):
         INPUT_FILES.append(os.path.basename(name)[:-5])
+        if not name.endswith('.mzML'):
+            print("Extension mzML is case sensitive.", file=sys.stderr)
+            exit(1)
 
 
 rule all:
@@ -169,7 +171,7 @@ rule IDMapper:
 
 
 rule QCCalculator:
-    input: mzml="mzml/{name}.mzml", \
+    input: mzml="mzml/{name}.mzML", \
            feature="IDMapper/{name}.featureXML", \
            idxml="IDFilter/{name}.idXML"
     output: "QCCalculator/{name}.qcML"
