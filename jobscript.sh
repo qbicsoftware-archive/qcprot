@@ -27,5 +27,6 @@ export PATH=/lustre_cfc/software/qbic/anaconda3/bin:$PATH
 export R_HOME=${SCRIPTDIR}/r_scripts
 export QCPROT_VERSION=$(git -C ${SCRIPTDIR} describe --always --dirty)
 export OPENMS_BIN=$(dirname "$(which IDMapper)")
+export INI_PATH=${SCRIPTDIR}/inis
 
 {exec_job}

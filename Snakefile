@@ -69,7 +69,7 @@ class OpenMS:
 
         return wrapper
 
-INI_PATH = config.get('ini_path', 'inis')
+INI_PATH = config.get('ini_path', os.environ('INI_PATH', 'inis'))
 openms = OpenMS(OPENMS_BIN, INI_PATH, 'logs')
 
 # store the content of the ini file, so that snakemake will run
