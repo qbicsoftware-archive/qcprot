@@ -1,20 +1,17 @@
 Run a quality control workflow on mzML files from mass spec based proteomics.
 
 Execute ``qcprot`` with the working directory as parameter. This directory must
-contain a config file called ``config.json``.
+contain a config file called ``config.json`` and a directory ``mzml`` that
+contains the input mzml files.
 
 Results will be written to a directory ``results`` in the workdir.
 
 Example config file::
 
     {
-        "REF" : "uniprot_sprot_101104_human_concat.fasta",
-        "input_files" : ["mzML/velos005614.mzML"],
-        "precursor_tolerance" : "15",
-        "precursor_tolerance_unit" : "ppm",
-        "fragment_tolerance" : "25",
-        "fragment_tolerance_unit" : "ppm",
-        "retention_time_tolerance": "60",
-        "retention_time_tolerance_unit" : "sec",
-        "shell_prefix" : "module load lib/openms/1.11"
+        "fasta" : "uniprot_sprot_101104_human_concat.fasta",
+        "fasta_has_decoy": false,
+        "ini_path" : "path/to/ini/files",
     }
+
+Only ``"fasta"`` is mandatory.
