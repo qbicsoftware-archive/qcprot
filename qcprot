@@ -1,7 +1,7 @@
 #!/bin/bash
 
-if [ ! $# -eq 1 ] ; then
-	echo "Usage: qcprot <workdir>" 1>&2
+if [ ! $# -lt 2 ] ; then
+	echo "Usage: qcprot <workdir> [Snakemake args]" 1>&2
 	exit 1
 fi
 
@@ -46,8 +46,5 @@ export QCPROT_VERSION=$(git --git-dir ${SCRIPTDIR}/.git describe --always --dirt
 export OPENMS_BIN=$(dirname "$(which IDMapper)")
 export INI_PATH=${SCRIPTDIR}/inis
 
-snakemake -T --snakefile ${SCRIPTDIR}/Snakefile -j 4
-
-# qsub -V preserves environment variables
-#SUBMIT_CMD="qsub -l nodes=1:ppn=1:cfc -w ${WORKDIR} -V"
-#snakemake -T --snakefile ${SCRIPTDIR}/Snakefile --cluster "${SUBMIT_CMD}" -j 10
+shift
+snakemake -T --snakefile ${SCRIPTDIR}/Snakefile "@*"
