@@ -16,7 +16,7 @@ colnames(file_p) <- cbind("RT","Precursor")
 
 #print(file_p$Precursor)
 #R <- read.csv("/tmp/R-inDataTempFile-7432835522670914453.csv", header = TRUE, row.names = 1);
-png(post, width=480, height=320, pointsize=12, bg="#FFFFFF", res=NA);
+png(post, width=640, height=640, pointsize=12, bg="#FFFFFF", res=NA);
 plot(file_p$RT/60,file_p$Precursor,pch=16,,xlab="RT (min)",ylab="m/z",cex=0.3)
 points(file_id$RT/60,file_id$MZ,col="red",pch=4,cex=0.3)
 legend("topleft",c("recorded spectra","identified spectra"),pch=19,col=c(1,2))

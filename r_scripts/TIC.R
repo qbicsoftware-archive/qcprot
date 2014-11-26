@@ -12,7 +12,7 @@ a<-read.csv(file=file,head=TRUE,sep="\t")
 colnames(a) <- cbind("RT","TIC")
 
 ######################################
-png(post)
+png(post, width = 640, height = 640)
 res = barplot(t(a$TIC), xlab="RT (min)",ylab="Intensity")
 time_seq = seq(min(a$RT),max(a$RT),1200)
 time_seq = round(time_seq)/60

@@ -7,11 +7,14 @@ if(length(commandArgs(TRUE)) == 0){
 } else{
     csvin<-commandArgs(TRUE)[1]
     out<-commandArgs(TRUE)[2]
-    theo_mass <-commandArgs(TRUE)[3]
+
+    argv <- commandArgs(trailingOnly = FALSE)
+    base_dir <- dirname(substring(argv[grep("--file=", argv)], 8))
+    theo_mass <- paste(base_dir, "theoretical_masses.txt", sep="/")
     #post<-commandArgs(TRUE)[2]
 
     R <- read.delim(csvin, header = TRUE);
-    png(out,width=480, height=320, pointsize=12, bg="#FFFFFF", res=NA);
+    png(out,width=640, height=640, pointsize=12, bg="#FFFFFF", res=NA);
     theoretical_masses_var<-paste("file",theo_mass,sep=":")
     theoretical_masses_file<-gsub("file:","", theoretical_masses_var)
     b<-read.delim(theoretical_masses_file)
