@@ -282,7 +282,7 @@ rule HTML:
                     for row in attach_el.findall('TableRowValues'):
                         table.append(row.text.split())
 
-        with open('report_template.html') as f:
+        with open(pjoin(R_HOME, 'report_template.html')) as f:
             template = jinja2.Template(f.read())
             with open(str(output), 'w') as f_out:
                 f_out.write(template.render(qcprot=qcprot))
