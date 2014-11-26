@@ -43,4 +43,4 @@ export OPENMS_BIN=$(dirname "$(which IDMapper)")
 export INI_PATH=${SCRIPTDIR}/inis
 
 shift
-snakemake -T --snakefile ${SCRIPTDIR}/Snakefile "@*"
+snakemake -T --snakefile ${SCRIPTDIR}/Snakefile "$@"
