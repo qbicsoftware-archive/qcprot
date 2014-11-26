@@ -97,7 +97,7 @@ rule all:
 
 
 rule FeatureFinderCentroided:
-    input: "mzml/{name}.mzml"
+    input: "mzml/{name}.mzML"
     output: "FeatureFinderCentroided/{name}.featureXML"
     params: params('FeatureFinderCentroided')
     run:
@@ -116,7 +116,7 @@ rule DecoyDatabase:
 
 
 rule XTandemAdapter:
-    input: fasta=rules.DecoyDatabase.output, mzml="mzml/{name}.mzml"
+    input: fasta=rules.DecoyDatabase.output, mzml="mzml/{name}.mzML"
     output: "XTandemAdapter/{name}.idXML"
     params: params('XTandemAdapter')
     run:
