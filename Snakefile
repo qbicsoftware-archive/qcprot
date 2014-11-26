@@ -69,7 +69,7 @@ class OpenMS:
 
         return wrapper
 
-INI_PATH = config.get('ini_path', os.environ('INI_PATH', 'inis'))
+INI_PATH = config.get('ini_path', os.environ.get('INI_PATH', 'inis'))
 openms = OpenMS(OPENMS_BIN, INI_PATH, 'logs')
 
 # store the content of the ini file, so that snakemake will run
@@ -187,7 +187,7 @@ rule PlotQC:
             'fractional_mass':
                 ('QC:0000047', 'fractionalMass.R'),
             'mass_acc':
-                ('QC:0000044', 'MassAcc.R'),
+                ('QC:0000038', 'MassAcc.R'),
             'mass_error':
                 ('QC:0000038', 'MassError.R'),
             'tic':
@@ -204,11 +204,14 @@ rule PlotQC:
                 subprocess.check_call(['Rscript', script_path, csv, png])
 
             script_path = pjoin(R_HOME, 'IDRatio.R')
+            csv = pjoin(tmp, 'qv0000044.csv')
+            extra = ['-out_csv', csv, '-qp', 'QC:0000044']
+            openms.QCExtractor(input, None, extra_args=extra)
             command = [
                 'Rscript',
                 script_path,
+                pjoin(tmp, csv),
                 pjoin(tmp, 'mass_acc.csv'),
-                pjoin(tmp, 'mass_error.csv'),
                 pjoin(tmp, 'id_ratio.png'),
             ]
             subprocess.check_call(command)
@@ -221,7 +224,7 @@ rule PlotQC:
                 ('mass_error.png', 'QC:0000054', 'QC:0000041'),
                 ('mass_acc.png', 'QC:0000053', 'QC:0000041'),
                 ('fractional_mass.png', 'QC:0000043', 'QC:0000007'),
-                ('id_ratio.png', 'QC:0000053', 'QC:0000035')
+                ('id_ratio.png', 'QC:0000052', 'QC:0000035')
             ]
             for png, cv_acc, qp_att_acc in args:
                 png_path = pjoin(tmp, png)
