@@ -46,5 +46,8 @@ export QCPROT_VERSION=$(git -C ${SCRIPTDIR} describe --always --dirty)
 export OPENMS_BIN=$(dirname "$(which IDMapper)")
 export INI_PATH=${SCRIPTDIR}/inis
 
-#snakemake -T --snakefile ${SCRIPTDIR}/Snakefile --config R_home=${WORKDIR}/r_scripts
-snakemake -T --snakefile ${SCRIPTDIR}/Snakefile --cluster "qsub -l nodes=1:ppn=1:cfc -w ${WORKDIR}" --jobscript ${SCRIPTDIR}/jobscript.sh -j 10
+#snakemake -T --snakefile ${SCRIPTDIR}/Snakefile
+
+# qsub -V preserves environment variables
+SUBMIT_CMD="qsub -l nodes=1:ppn=1:cfc -w ${WORKDIR} -V"
+snakemake -T --snakefile ${SCRIPTDIR}/Snakefile --cluster "${SUBMIT_CMD}" -j 10
