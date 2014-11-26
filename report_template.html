@@ -1,0 +1,53 @@
+<h1>Quality control report</h1>
+<div class="qcprot-description">
+    This report was created on {{ qcprot.date|e }}.
+    <br/>
+    The version of qcprot was {{ qcprot.version|e }}. You can find the
+    source <a href="http://github.com/qbicsoftware/qcprot">here</a>.
+    <br/>
+    The protein database was {{ qcprot.fasta_name|e }} with md5
+    {{ qcprot.fasta_md5|e }} and size {{ qcprot.fasta_size|e }}).
+</div>
+{% for run in qcprot.runs %}
+<div class="qcprot-run">
+    <h2> Run {{ run.id|e }} </h2>
+    <table class="qcprot-table table">
+    {% for row in run.data %}
+        <tr>
+            <td class=qcprot-table-label> {{ row[0]|e }} </td>
+            <td class=qcprot-table-value> {{ row[1]|e }} </td>
+        </tr>
+    {% endfor %}
+    </table>
+    {% for attach in run.attachments %}
+        <div class="qcprot-attach">
+            <h3> {{ attach.name|e }} </h3>
+            {% if "plot_data" in attach %}
+                <img src="data:image/png;base64,{{ attach.plot_data|e }}"/>
+            {% endif %}
+            {% if "table" in attach %}
+                <table class="qcprot-table table">
+                    <thead>
+                        <tr>
+                        {% for val in attach.table[0] %}
+                            <th> {{ val|e }} </th>
+                        {% endfor %}
+                        </tr>
+                    </thead>
+                    </tbody>
+                        {% for row in attach.table[1:] %}
+                            <tr>
+                            {% for val in row %}
+                                <td class=qcprot-table-value>
+                                    {{ val|e }}
+                                </td>
+                            {% endfor %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+        </div>
+    {% endfor %}
+</div>
+{% endfor %}
