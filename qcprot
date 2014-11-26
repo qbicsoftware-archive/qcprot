@@ -42,6 +42,8 @@ echo "module files loaded."
 export PATH=/lustre_cfc/software/qbic/anaconda3/bin:$PATH
 
 export R_HOME=${SCRIPTDIR}/r_scripts
+export QCPROT_VERSION=$(git -C ${SCRIPTDIR} describe --always --dirty)
+export OPENMS_BIN=$(dirname "$(which IDMapper)")
 
 #snakemake -T --snakefile ${SCRIPTDIR}/Snakefile --config R_home=${WORKDIR}/r_scripts
-snakemake -T --snakefile ${SCRIPTDIR}/Snakefile --cluster "ssh u-003-scfe03 'qsub -l nodes=1:ppn=1:cfc -w ${WORKDIR}' " --jobscript ${SCRIPTDIR}/jobscript.sh --config R_home=${WORKDIR}/r_scripts -j 4
+snakemake -T --snakefile ${SCRIPTDIR}/Snakefile --cluster "qsub -l nodes=1:ppn=1:cfc -w ${WORKDIR}" --jobscript ${SCRIPTDIR}/jobscript.sh -j 10

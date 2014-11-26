@@ -1,19 +1,19 @@
 import json
 import os
 import sys
-from os.path import join as pjoin
-from os.path import exists as pexists
 import subprocess
 import tempfile
 import uuid
 import shutil
 import jinja2
-from xml.etree.ElementTree import ElementTree
 from datetime import datetime
+from os.path import join as pjoin
+from os.path import exists as pexists
+from xml.etree.ElementTree import ElementTree
 
 configfile: "config.json"
 
-for key in ['R_HOME', 'OPENMS_BIN']:
+for key in ['R_HOME', 'OPENMS_BIN', 'QCPROT_VERSION']:
     if key not in os.environ:
         print("Environment variable %s is not defined. Aborting." % key,
               file=sys.stderr)
@@ -21,6 +21,7 @@ for key in ['R_HOME', 'OPENMS_BIN']:
 
 R_HOME = os.environ['R_HOME']
 OPENMS_BIN = os.environ['OPENMS_BIN']
+QCPROT_VERSION = os.environ['QCPROT_VERSION']
 
 class OpenMS:
     def __init__(self, bin_path, ini_dir, log_dir):
@@ -239,12 +240,15 @@ rule HTML:
     run:
         tree = ElementTree(file=str(input))
         runs = tree.findall('RunQuality')
+
+        fasta_md5 = subprocess.check_output(['md5sum', config['fasta']])
+        fasta_size = os.stat(config['fasta']).st_size
         qcprot = {
             'date': datetime.strftime(datetime.now(), "%d. %B %Y at %H:%M"),
-            'version': 'undefined',
-            'fasta_name': 'unknown',
-            'fasta_md5': 'unknown',
-            'fasta_size': 'unknown',
+            'version': QCPROT_VERSION,
+            'fasta_name': config['fasta'],
+            'fasta_md5': fasta_md5.split()[0],
+            'fasta_size': "%.2fM" % (fasta_size / 1024 / 1024),
         }
         qcprot['runs'] = []
         for run_el in runs:
