@@ -42,12 +42,12 @@ echo "module files loaded."
 export PATH=/lustre_cfc/software/qbic/anaconda3/bin:$PATH
 
 export R_HOME=${SCRIPTDIR}/r_scripts
-export QCPROT_VERSION=$(git -C ${SCRIPTDIR} describe --always --dirty)
+export QCPROT_VERSION=$(git --git-dir ${SCRIPTDIR}/.git describe --always --dirty)
 export OPENMS_BIN=$(dirname "$(which IDMapper)")
 export INI_PATH=${SCRIPTDIR}/inis
 
-#snakemake -T --snakefile ${SCRIPTDIR}/Snakefile
+snakemake -T --snakefile ${SCRIPTDIR}/Snakefile -j 4
 
 # qsub -V preserves environment variables
-SUBMIT_CMD="qsub -l nodes=1:ppn=1:cfc -w ${WORKDIR} -V"
-snakemake -T --snakefile ${SCRIPTDIR}/Snakefile --cluster "${SUBMIT_CMD}" -j 10
+#SUBMIT_CMD="qsub -l nodes=1:ppn=1:cfc -w ${WORKDIR} -V"
+#snakemake -T --snakefile ${SCRIPTDIR}/Snakefile --cluster "${SUBMIT_CMD}" -j 10
