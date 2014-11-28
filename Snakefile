@@ -102,8 +102,15 @@ rule all:
     input: ["../result/{name}.html".format(name=name) for name in INPUT_FILES]
 
 
-rule PeakPicker:
+rule FileFilter:
     input: "../mzml/{name}.mzML"
+    output: "FileFilter/{name}.mzML"
+    run:
+        openms.FileFilter(input, output, extra=['-sort'])
+
+
+rule PeakPicker:
+    input: "FileFilter/{name}.mzML"
     output: "PeakPicker/{name}.mzML"
     params: params('PeakPickerHiRes')
     run:
