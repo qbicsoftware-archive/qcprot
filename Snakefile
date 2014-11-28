@@ -11,7 +11,11 @@ from os.path import exists as pexists
 from xml.etree.ElementTree import ElementTree
 import hashlib
 
+if not pexists('work'):
+    os.mkdir("work")
+
 configfile: "config.json"
+workdir: "work"
 
 for key in ['R_HOME', 'OPENMS_BIN', 'QCPROT_VERSION']:
     if key not in os.environ:
@@ -69,8 +73,8 @@ class OpenMS:
 
         return wrapper
 
-INI_PATH = config.get('ini_path', os.environ.get('INI_PATH', 'inis'))
-openms = OpenMS(OPENMS_BIN, INI_PATH, 'logs')
+INI_PATH = config.get('ini_path', os.environ.get('INI_PATH', '../inis'))
+openms = OpenMS(OPENMS_BIN, INI_PATH, '../logs')
 
 # store the content of the ini file, so that snakemake will run
 # rules agrain if the parameters inside the file change.
@@ -86,7 +90,7 @@ def params(name):
 
 
 INPUT_FILES = []
-for name in os.listdir('mzml'):
+for name in os.listdir('../mzml'):
     if name.lower().endswith('.mzml'):
         INPUT_FILES.append(os.path.basename(name)[:-5])
         if not name.endswith('.mzML'):
@@ -95,11 +99,19 @@ for name in os.listdir('mzml'):
 
 
 rule all:
-    input: ["result/{name}.html".format(name=name) for name in INPUT_FILES]
+    input: ["../result/{name}.html".format(name=name) for name in INPUT_FILES]
+
+
+rule PeakPicker:
+    input: "../mzml/{name}.mzML"
+    output: "PeakPicker/{name}.mzML"
+    params: params('PeakPickerHiRes')
+    run:
+        openms.PeakPickerHiRes(input, output, ini=params)
 
 
 rule FeatureFinderCentroided:
-    input: "mzml/{name}.mzML"
+    input: "PeakPicker/{name}.mzML"
     output: "FeatureFinderCentroided/{name}.featureXML"
     params: params('FeatureFinderCentroided')
     run:
@@ -171,7 +183,7 @@ rule IDMapper:
 
 
 rule QCCalculator:
-    input: mzml="mzml/{name}.mzML", \
+    input: mzml="../mzml/{name}.mzML", \
            feature="IDMapper/{name}.featureXML", \
            idxml="IDFilter/{name}.idXML"
     output: "QCCalculator/{name}.qcML"
@@ -183,7 +195,7 @@ rule QCCalculator:
 
 rule PlotQC:
     input: "QCCalculator/{name}.qcML"
-    output: "result/{name}.qcML"
+    output: "../result/{name}.qcML"
     run:
         extra_cv = {
             'fractional_mass':
@@ -240,8 +252,8 @@ rule PlotQC:
 
 
 rule HTML:
-    input: "result/{name}.qcML"
-    output: "result/{name}.html"
+    input: "../result/{name}.qcML"
+    output: "../result/{name}.html"
     run:
         tree = ElementTree(file=str(input))
         runs = tree.findall('RunQuality')
