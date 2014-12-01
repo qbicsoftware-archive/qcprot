@@ -107,7 +107,7 @@ rule FileFilter:
     input: "mzml/{name}.mzML"
     output: "work/FileFilter/{name}.mzML"
     run:
-        openms.FileFilter(input, output, extra=['-sort'])
+        openms.FileFilter(input, output, extra_args=['-sort'])
 
 
 rule PeakPicker:
