@@ -11,7 +11,12 @@ Example config file::
     {
         "fasta" : "uniprot_sprot_101104_human_concat.fasta",
         "fasta_has_decoy": false,
-        "ini_path" : "path/to/ini/files",
+        "ini_path" : "path/to/ini/files"
     }
 
-Only ``"fasta"`` is mandatory.
+Only ``"fasta"`` is mandatory. If you want to include several fasta files
+(``'crap.fasta'!``) just specify a list of fasta files::
+
+    {
+        "fasta" : ["uniprot_sprot_101104_human_concat.fasta", "crap.fasta"]
+    }

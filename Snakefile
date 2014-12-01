@@ -126,13 +126,24 @@ rule FeatureFinderCentroided:
         openms.FeatureFinderCentroided(input, output, ini=params)
 
 
+rule CombineFastas:
+    input: fasta=config["fasta"]
+    output: "work/CombineFastas/database.fasta"
+    run:
+        fastas = input.fasta
+        if not isinstance(input.fasta, list):
+            fastas = [fastas]
+        with open(str(output), 'w') as f:
+            subprocess.check_call(['cat'] + fastas, stdout=f)
+
+
 rule DecoyDatabase:
-    input: config["fasta"]
+    input: "work/CombineFastas/database.fasta"
     output: "work/DecoyDatabase/database.fasta"
     params: params('DecoyDatabase')
     run:
         if config.get('fasta_has_decoy', False):
-            shell("cp -- {} {}".format(input, output))
+            shell("ln -- {} {}".format(input, output))
         else:
             openms.DecoyDatabase(input, output, ini=params)
 
