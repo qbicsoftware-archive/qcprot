@@ -10,18 +10,19 @@ from os.path import join as pjoin
 from os.path import exists as pexists
 from xml.etree.ElementTree import ElementTree
 import hashlib
-
-if not pexists('work'):
-    os.mkdir("work")
+import base64
+import csv
 
 configfile: "config.json"
-workdir: "work"
 
 for key in ['R_HOME', 'OPENMS_BIN', 'QCPROT_VERSION']:
     if key not in os.environ:
         print("Environment variable %s is not defined. Aborting." % key,
               file=sys.stderr)
         exit(1)
+
+if not pexists('work'):
+    os.mkdir("work")
 
 R_HOME = os.environ['R_HOME']
 OPENMS_BIN = os.environ['OPENMS_BIN']
@@ -73,8 +74,8 @@ class OpenMS:
 
         return wrapper
 
-INI_PATH = config.get('ini_path', os.environ.get('INI_PATH', '../inis'))
-openms = OpenMS(OPENMS_BIN, INI_PATH, '../logs')
+INI_PATH = config.get('ini_path', os.environ.get('INI_PATH', 'inis'))
+openms = OpenMS(OPENMS_BIN, INI_PATH, 'logs')
 
 # store the content of the ini file, so that snakemake will run
 # rules agrain if the parameters inside the file change.
@@ -90,7 +91,7 @@ def params(name):
 
 
 INPUT_FILES = []
-for name in os.listdir('../mzml'):
+for name in os.listdir('mzml'):
     if name.lower().endswith('.mzml'):
         INPUT_FILES.append(os.path.basename(name)[:-5])
         if not name.endswith('.mzML'):
@@ -99,27 +100,27 @@ for name in os.listdir('../mzml'):
 
 
 rule all:
-    input: ["../result/{name}.html".format(name=name) for name in INPUT_FILES]
+    input: ["result/{name}.html".format(name=name) for name in INPUT_FILES]
 
 
 rule FileFilter:
-    input: "../mzml/{name}.mzML"
-    output: "FileFilter/{name}.mzML"
+    input: "mzml/{name}.mzML"
+    output: "work/FileFilter/{name}.mzML"
     run:
         openms.FileFilter(input, output, extra=['-sort'])
 
 
 rule PeakPicker:
-    input: "FileFilter/{name}.mzML"
-    output: "PeakPicker/{name}.mzML"
+    input: "work/FileFilter/{name}.mzML"
+    output: "work/PeakPicker/{name}.mzML"
     params: params('PeakPickerHiRes')
     run:
         openms.PeakPickerHiRes(input, output, ini=params)
 
 
 rule FeatureFinderCentroided:
-    input: "PeakPicker/{name}.mzML"
-    output: "FeatureFinderCentroided/{name}.featureXML"
+    input: "work/PeakPicker/{name}.mzML"
+    output: "work/FeatureFinderCentroided/{name}.featureXML"
     params: params('FeatureFinderCentroided')
     run:
         openms.FeatureFinderCentroided(input, output, ini=params)
@@ -127,7 +128,7 @@ rule FeatureFinderCentroided:
 
 rule DecoyDatabase:
     input: config["fasta"]
-    output: "DecoyDatabase/database.fasta"
+    output: "work/DecoyDatabase/database.fasta"
     params: params('DecoyDatabase')
     run:
         if config.get('fasta_has_decoy', False):
@@ -137,8 +138,8 @@ rule DecoyDatabase:
 
 
 rule XTandemAdapter:
-    input: fasta=rules.DecoyDatabase.output, mzml="mzml/{name}.mzML"
-    output: "XTandemAdapter/{name}.idXML"
+    input: fasta=rules.DecoyDatabase.output, mzml="PeakPicker/{name}.mzML"
+    output: "work/XTandemAdapter/{name}.idXML"
     params: params('XTandemAdapter')
     run:
         extra = ['-database', str(input.fasta)]
@@ -146,8 +147,8 @@ rule XTandemAdapter:
 
 
 rule IDPosteriorError:
-    input: "XTandemAdapter/{name}.idXML"
-    output: "IDPosteriorXTandem/{name}.idXML"
+    input: "work/XTandemAdapter/{name}.idXML"
+    output: "work/IDPosteriorXTandem/{name}.idXML"
     params: params('IDPosteriorErrorProbability')
     run:
         openms.IDPosteriorErrorProbability(input, output, ini=params)
@@ -155,8 +156,8 @@ rule IDPosteriorError:
 
 rule PeptideIndexer:
     input: fasta=rules.DecoyDatabase.output, \
-           idxml="IDPosteriorXTandem/{name}.idXML"
-    output: "PeptideIndexer/{name}.idXML"
+           idxml="work/IDPosteriorXTandem/{name}.idXML"
+    output: "work/PeptideIndexer/{name}.idXML"
     params: params('PeptideIndexer')
     run:
         extra=['-fasta', str(input.fasta)]
@@ -164,25 +165,25 @@ rule PeptideIndexer:
 
 
 rule FalseDiscoveryRate:
-    input: "PeptideIndexer/{name}.idXML"
-    output: "FalseDiscoveryRate/{name}.idXML"
-    params: params('PeptideIndexer')
+    input: "work/PeptideIndexer/{name}.idXML"
+    output: "work/FalseDiscoveryRate/{name}.idXML"
+    params: params('FalseDiscoveryRate')
     run:
         openms.FalseDiscoveryRate(input, output, ini=params)
 
 
 rule IDFilter:
-    input: "FalseDiscoveryRate/{name}.idXML"
-    output: "IDFilter/{name}.idXML"
+    input: "work/FalseDiscoveryRate/{name}.idXML"
+    output: "work/IDFilter/{name}.idXML"
     params: params('IDFilter')
     run:
         openms.IDFilter(input, output, ini=params)
 
 
 rule IDMapper:
-    input: feature="FeatureFinderCentroided/{name}.featureXML", \
-           idxml="IDFilter/{name}.idXML"
-    output: 'IDMapper/{name}.featureXML'
+    input: feature="work/FeatureFinderCentroided/{name}.featureXML", \
+           idxml="work/IDFilter/{name}.idXML"
+    output: 'work/IDMapper/{name}.featureXML'
     params: params('IDMapper')
     run:
         extra = ['-id', str(input.idxml)]
@@ -190,77 +191,60 @@ rule IDMapper:
 
 
 rule QCCalculator:
-    input: mzml="../mzml/{name}.mzML", \
-           feature="IDMapper/{name}.featureXML", \
-           idxml="IDFilter/{name}.idXML"
-    output: "QCCalculator/{name}.qcML"
+    input: mzml="mzml/{name}.mzML", \
+           feature="work/IDMapper/{name}.featureXML", \
+           idxml="work/IDFilter/{name}.idXML"
+    output: "work/QCCalculator/{name}.qcML"
     params: params('QCCalculator')
     run:
         extra = ['-feature', input.feature, '-id', input.idxml]
         openms.QCCalculator(input.mzml, output, extra_args=extra, ini=params)
 
 
-rule PlotQC:
-    input: "QCCalculator/{name}.qcML"
-    output: "../result/{name}.qcML"
-    run:
-        extra_cv = {
-            'fractional_mass':
-                ('QC:0000047', 'fractionalMass.R'),
-            'mass_acc':
-                ('QC:0000038', 'MassAcc.R'),
-            'mass_error':
-                ('QC:0000038', 'MassError.R'),
-            'tic':
-                ('QC:0000022', 'TIC.R')
-        }
+def make_qc_plots(qcml, run=None):
+    accessions = {
+        'fractional_mass': 'QC:0000047',
+        'mass_acc': 'QC:0000038',
+        'mass_error': 'QC:0000038',
+        'tic': 'QC:0000022',
+    }
 
-        with tempfile.TemporaryDirectory() as tmp:
-            for key, (cv, script) in extra_cv.items():
-                csv = pjoin(tmp, key + '.csv')
-                png = pjoin(tmp, key + '.png')
-                extra = ['-out_csv', csv, '-qp', cv]
-                openms.QCExtractor(input, None, extra_args=extra)
-                script_path = pjoin(R_HOME, script)
-                subprocess.check_call(['Rscript', script_path, csv, png])
+    with tempfile.TemporaryDirectory() as tmp:
+        for key, cv in accessions.items():
+            csv = pjoin(tmp, key + '.csv')
+            extra = ['-out_csv', csv, '-qp', cv]
+            openms.QCExtractor(qcml, None, extra_args=extra)
 
-            script_path = pjoin(R_HOME, 'IDRatio.R')
-            csv = pjoin(tmp, 'qv0000044.csv')
-            extra = ['-out_csv', csv, '-qp', 'QC:0000044']
-            openms.QCExtractor(input, None, extra_args=extra)
-            command = [
-                'Rscript',
-                script_path,
-                pjoin(tmp, csv),
-                pjoin(tmp, 'mass_acc.csv'),
-                pjoin(tmp, 'id_ratio.png'),
-            ]
-            subprocess.check_call(command)
+        plot_dir = pjoin(tmp, 'plots')
+        os.mkdir(plot_dir)
 
-            tmp1_qcml = pjoin(tmp, 'tmp1.qcml')
-            tmp2_qcml = pjoin(tmp, 'tmp2_qcml')
-            shutil.copy(str(input), tmp1_qcml)
-            args = [
-                ('tic.png', 'MS:1000235', 'QC:0000023'),
-                ('mass_error.png', 'QC:0000054', 'QC:0000041'),
-                ('mass_acc.png', 'QC:0000053', 'QC:0000041'),
-                ('fractional_mass.png', 'QC:0000043', 'QC:0000007'),
-                ('id_ratio.png', 'QC:0000052', 'QC:0000035')
-            ]
-            for png, cv_acc, qp_att_acc in args:
-                png_path = pjoin(tmp, png)
-                extra = ['-plot', png_path,
-                         '-cv_acc', cv_acc,
-                         '-qp_att_acc', qp_att_acc]
-                openms.QCEmbedder(tmp1_qcml, tmp2_qcml, extra_args=extra)
-                shutil.copy(tmp2_qcml, tmp1_qcml)
+        for file in os.listdir(R_HOME):
+            if os.path.splitext(file).lower() == '.r':
+                subprocess.check_call(['Rscript', file, tmp, plot_dir])
 
-            openms.QCShrinker(tmp1_qcml, output)
+        plots = {}
+        files = os.lisdir(plot_dir)
+        for file in sorted(files):
+            path, name = os.path.split(file)
+            stem, ext = os.path.splitext(name)
+            plot = plots.setdefault(stem, {})
+            with open(file) as f:
+                if ext.lower() == '.png':
+                    png = f.read().encode()
+                    plot['png'] = base64.encodbytes(png).decode()
+                elif ext.lower() == '.svg':
+                    plot['svg'] = f.read()
+                elif ext.lower() in ['.txt', '.html']:
+                    plot['desc'] = f.read()
+                elif ext.lower() == '.csv':
+                    plot['table'] = list(csv.reader(f))
+                elif ext.lower() == '.title':
+                    plot['title'] = f.read()
 
 
 rule HTML:
-    input: "../result/{name}.qcML"
-    output: "../result/{name}.html"
+    input: "work/QCCalculator/{name}.qcML"
+    output: "result/{name}.html"
     run:
         tree = ElementTree(file=str(input))
         runs = tree.findall('RunQuality')
@@ -271,37 +255,39 @@ rule HTML:
             'date': datetime.strftime(datetime.now(), "%d. %B %Y at %H:%M"),
             'version': QCPROT_VERSION,
             'fasta_name': config['fasta'],
-            'fasta_md5': fasta_md5.split()[0],
+            'fasta_md5': fasta_md5.split()[0].decode(),
             'fasta_size': "%.2fM" % (fasta_size / 1024 / 1024),
         }
+
+        orig_ini = pjoin(R_HOME, '..', 'inis')
+        ini_diff = subprocess.check_call(
+            ['diff', '-u', '-c1', '-w', orig_ini, INI_PATH]
+        )
+
+        try:
+            ini_diff = subprocess.check_call(
+                ['pygmentize', '-l', 'diff', '-f', 'html']
+            )
+        except subprocess.CalledProcessError:
+            pass
+
+        if ini_diff.strip() != "":
+            qcprot['ini_diff'] = ini_diff
+
         qcprot['runs'] = []
+
         for run_el in runs:
             run = {
                 'id': run_el.get('ID'),
-                'data': [],
-                'attachments': [],
+                'quality_params': [],
             }
             qcprot['runs'].append(run)
-            data = run['data']
+            run['plots'] = make_qc_plots(str(input), run=run['id'])
+            data = run['quality_params']
             quality_params = run_el.findall('QualityParameter')
-            attachments = run_el.findall('Attachment')
             for param_el in quality_params:
                 if 'value' in param_el.keys() and 'name' in param_el.keys():
                     data.append((param_el.get('name'), param_el.get('value')))
-            for attach_el in attachments:
-                attach = {}
-                run['attachments'].append(attach)
-                attach['name'] = attach_el.get('name')
-                binary = attach_el.find('binary')
-                if binary is not None:
-                    attach['plot_data'] = binary.text.strip()
-                columns = attach_el.find('TableColumnTypes')
-                if columns is not None:
-                    table = []
-                    attach['table'] = table
-                    table.append(columns.text.split())
-                    for row in attach_el.findall('TableRowValues'):
-                        table.append(row.text.split())
 
         with open(pjoin(R_HOME, 'report_template.html')) as f:
             template = jinja2.Template(f.read())

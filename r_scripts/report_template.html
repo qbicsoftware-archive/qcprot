@@ -4,26 +4,37 @@
     <br/>
     The version of qcprot was {{ qcprot.version|e }}. You can find the
     source <a href="http://github.com/qbicsoftware/qcprot">here</a>.
-    <br/>
     The protein database was {{ qcprot.fasta_name|e }} with md5
-    {{ qcprot.fasta_md5|e }} and size {{ qcprot.fasta_size|e }}).
+    {{ qcprot.fasta_md5|e }} and size {{ qcprot.fasta_size|e }}.
+    {% if "ini_diff" in qcprot %}
+        The ini files were changed. Changes to the standard qcprot parameters:
+        <br/>
+        {{ qcprot.ini_diff|safe }}
+    {% endif %}
+    <br/>
 </div>
 {% for run in qcprot.runs %}
 <div class="qcprot-run">
     <h2> Run {{ run.id|e }} </h2>
     <table class="qcprot-table table">
-    {% for row in run.data %}
+    {% for row in run.quality_params %}
         <tr>
             <td class=qcprot-table-label> {{ row[0]|e }} </td>
             <td class=qcprot-table-value> {{ row[1]|e }} </td>
         </tr>
     {% endfor %}
     </table>
-    {% for attach in run.attachments %}
-        <div class="qcprot-attach">
-            <h3> {{ attach.name|e }} </h3>
-            {% if "plot_data" in attach %}
-                <img src="data:image/png;base64,{{ attach.plot_data|e }}"/>
+    {% for plot in run.plots %}
+        <div class="qcprot-plot">
+            <h3> {{ plot.title|e }} </h3>
+            {% if "desc" in plot %}
+                {{ plot["desc"]|safe }}
+            {% endif %}
+            {% if "png" in plot and "svg" not in plot %}
+                <img src="data:image/png;base64,{{ attach.plot_data|safe }}"/>
+            {% endif %}
+            {% if "svg" in plot %}
+                {{ plot[svg]|safe }}
             {% endif %}
             {% if "table" in attach %}
                 <table class="qcprot-table table">
