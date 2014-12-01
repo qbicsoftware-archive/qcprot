@@ -6,7 +6,7 @@ if [ $# -lt 2 ] ; then
 fi
 
 if [ $1 = "-h" ] || [ $1 = "--help" ] ; then
-	echo "Usage: qcprot <workdir>"
+	echo "Usage: qcprot <workdir> [Snakemake args]"
 	exit 0
 fi
 
@@ -43,4 +43,5 @@ export OPENMS_BIN=$(dirname "$(which IDMapper)")
 export INI_PATH=${SCRIPTDIR}/inis
 
 shift
+cd ${WORKDIR}
 snakemake -T --snakefile ${SCRIPTDIR}/Snakefile "$@"
