@@ -4,8 +4,15 @@
     <br/>
     The version of qcprot was {{ qcprot.version|e }}. You can find the
     source <a href="http://github.com/qbicsoftware/qcprot">here</a>.
-    The protein database was {{ qcprot.fasta_name|e }} with md5
-    {{ qcprot.fasta_md5|e }} and size {{ qcprot.fasta_size|e }}.
+    Proteinn databases were:
+    <ul>
+        {% for i in range(qcprot.fasta_names|count) %}
+        <li>
+            {{ qcprot.fasta_names[i]|e }} with md5 {{ qcprot.fasta_md5s[i]|e }}
+            and size {{ qcprot.fasta_sizes[i]|e }}.
+        </li>
+        {% endfor %}
+    </ul>
     {% if "ini_diff" in qcprot %}
         The ini files were changed. Changes to the standard qcprot parameters:
         <br/>

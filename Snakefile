@@ -149,11 +149,13 @@ rule DecoyDatabase:
 
 
 rule XTandemAdapter:
-    input: fasta=rules.DecoyDatabase.output, mzml="PeakPicker/{name}.mzML"
+    input: fasta=rules.DecoyDatabase.output, mzml="work/PeakPicker/{name}.mzML"
     output: "work/XTandemAdapter/{name}.idXML"
     params: params('XTandemAdapter')
     run:
         extra = ['-database', str(input.fasta)]
+        if 'xtandem_executable' in config:
+            extra += ['-xtandem_executable', config['xtandem_executable']]
         openms.XTandemAdapter(input.mzml, output, extra_args=extra, ini=params)
 
 
@@ -230,11 +232,12 @@ def make_qc_plots(qcml, run=None):
         os.mkdir(plot_dir)
 
         for file in os.listdir(R_HOME):
-            if os.path.splitext(file).lower() == '.r':
-                subprocess.check_call(['Rscript', file, tmp, plot_dir])
+            if os.path.splitext(file)[1].lower() == '.r':
+                #subprocess.check_call(['Rscript', file, tmp, plot_dir])
+                pass
 
         plots = {}
-        files = os.lisdir(plot_dir)
+        files = os.listdir(plot_dir)
         for file in sorted(files):
             path, name = os.path.split(file)
             stem, ext = os.path.splitext(name)
@@ -252,38 +255,51 @@ def make_qc_plots(qcml, run=None):
                 elif ext.lower() == '.title':
                     plot['title'] = f.read()
 
+    return plots
+
 
 rule HTML:
     input: "work/QCCalculator/{name}.qcML"
     output: "result/{name}.html"
     run:
+        NAMESPACE = "{http://www.prime-xs.eu/ms/qcml}"
         tree = ElementTree(file=str(input))
-        runs = tree.findall('RunQuality')
+        runs = tree.findall(NAMESPACE + 'runQuality')
 
-        fasta_md5 = subprocess.check_output(['md5sum', config['fasta']])
-        fasta_size = os.stat(config['fasta']).st_size
+        fastas = config['fasta']
+        if not isinstance(fastas, list):
+            fastas = list(fastas)
+
+        fasta_md5 = []
+        fasta_size = []
+        for fasta in fastas:
+            md5 = subprocess.check_output(['md5sum', fasta])
+            fasta_md5.append(md5.split()[0].decode())
+            size = os.stat(fasta).st_size / 1024 / 1024
+            fasta_size.append("%.2fM" % size)
         qcprot = {
             'date': datetime.strftime(datetime.now(), "%d. %B %Y at %H:%M"),
             'version': QCPROT_VERSION,
-            'fasta_name': config['fasta'],
-            'fasta_md5': fasta_md5.split()[0].decode(),
-            'fasta_size': "%.2fM" % (fasta_size / 1024 / 1024),
+            'fasta_names': fastas,
+            'fasta_md5s': fasta_md5,
+            'fasta_sizes': fasta_size,
         }
 
         orig_ini = pjoin(R_HOME, '..', 'inis')
-        ini_diff = subprocess.check_call(
-            ['diff', '-u', '-c1', '-w', orig_ini, INI_PATH]
-        )
-
-        try:
-            ini_diff = subprocess.check_call(
-                ['pygmentize', '-l', 'diff', '-f', 'html']
-            )
-        except subprocess.CalledProcessError:
-            pass
-
+        ini_diff = subprocess.check_output(
+            ['diff', '-u', '-w', orig_ini, INI_PATH]
+        ).decode()
         if ini_diff.strip() != "":
-            qcprot['ini_diff'] = ini_diff
+
+            p = subprocess.Popen(
+                ['pygmentize', '-l', 'diff', '-f', 'html'],
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE
+            )
+            out, _ = p.communicate(ini_diff.encode())
+            if p.returncode == 0:
+                qcprot['ini_diff'] = out.decode()
+            else:
+                qcprot['ini_diff'] = ini_diff
 
         qcprot['runs'] = []
 
@@ -295,7 +311,7 @@ rule HTML:
             qcprot['runs'].append(run)
             run['plots'] = make_qc_plots(str(input), run=run['id'])
             data = run['quality_params']
-            quality_params = run_el.findall('QualityParameter')
+            quality_params = run_el.findall(NAMESPACE + 'qualityParameter')
             for param_el in quality_params:
                 if 'value' in param_el.keys() and 'name' in param_el.keys():
                     data.append((param_el.get('name'), param_el.get('value')))
@@ -303,4 +319,5 @@ rule HTML:
         with open(pjoin(R_HOME, 'report_template.html')) as f:
             template = jinja2.Template(f.read())
             with open(str(output), 'w') as f_out:
+                print(qcprot)
                 f_out.write(template.render(qcprot=qcprot))
