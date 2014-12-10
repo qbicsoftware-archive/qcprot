@@ -143,7 +143,7 @@ rule DecoyDatabase:
     params: params('DecoyDatabase')
     run:
         if config.get('fasta_has_decoy', False):
-            shell("ln -- {} {}".format(input, output))
+            shell("cp -- {} {}".format(input, output))
         else:
             openms.DecoyDatabase(input, output, ini=params)
 
