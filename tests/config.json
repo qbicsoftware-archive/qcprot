@@ -1,0 +1,4 @@
+{
+  "fasta": ["YEAST.fasta"],
+  "xtandem_executable": "tandem.exe"
+}
