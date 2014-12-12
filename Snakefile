@@ -216,8 +216,8 @@ rule QCCalculator:
 
 def make_qc_plots(qcml, run=None):
     accessions = {
-        'fractional_mass': 'QC:0000047',
-        'mass_acc': 'QC:0000038',
+        'fractional_mass': 'QC:0000038',
+        'mass_accuracy': 'QC:0000038',
         'mass_error': 'QC:0000038',
         'tic': 'QC:0000022',
     }
@@ -233,28 +233,30 @@ def make_qc_plots(qcml, run=None):
 
         for file in os.listdir(R_HOME):
             if os.path.splitext(file)[1].lower() == '.r':
-                #subprocess.check_call(['Rscript', file, tmp, plot_dir])
-                pass
+                script = os.path.join(R_HOME, file)
+                subprocess.call(['Rscript', script, tmp, plot_dir])
 
         plots = {}
         files = os.listdir(plot_dir)
-        for file in sorted(files):
-            path, name = os.path.split(file)
+        for name in sorted(files):
             stem, ext = os.path.splitext(name)
+            path = os.path.join(plot_dir, name)
             plot = plots.setdefault(stem, {})
-            with open(file) as f:
+            with open(path, 'rb') as f:
                 if ext.lower() == '.png':
-                    png = f.read().encode()
-                    plot['png'] = base64.encodbytes(png).decode()
+                    png = f.read()
+                    plot['png'] = base64.encodebytes(png).decode()
                 elif ext.lower() == '.svg':
-                    plot['svg'] = f.read()
+                    plot['svg'] = f.read().decode()
                 elif ext.lower() in ['.txt', '.html']:
-                    plot['desc'] = f.read()
+                    plot['desc'] = f.read().decode()
                 elif ext.lower() == '.csv':
                     plot['table'] = list(csv.reader(f))
                 elif ext.lower() == '.title':
-                    plot['title'] = f.read()
+                    plot['title'] = f.read().decode()
 
+    if any("title" not in val for val in plots.values()):
+        raise ValueError("Invalid output of R script. Title is missing")
     return plots
 
 
@@ -262,7 +264,8 @@ rule HTML:
     input: "work/QCCalculator/{name}.qcML"
     output: "result/{name}.html"
     run:
-        NAMESPACE = "{http://www.prime-xs.eu/ms/qcml}"
+        #NAMESPACE = "{http://www.prime-xs.eu/ms/qcml}"  # openms 1.12?
+        NAMESPACE = ""
         tree = ElementTree(file=str(input))
         runs = tree.findall(NAMESPACE + 'runQuality')
 
@@ -277,6 +280,7 @@ rule HTML:
             fasta_md5.append(md5.split()[0].decode())
             size = os.stat(fasta).st_size / 1024 / 1024
             fasta_size.append("%.2fM" % size)
+
         qcprot = {
             'date': datetime.strftime(datetime.now(), "%d. %B %Y at %H:%M"),
             'version': QCPROT_VERSION,
@@ -301,9 +305,17 @@ rule HTML:
             else:
                 qcprot['ini_diff'] = ini_diff
 
+        p = subprocess.Popen(
+            ['pygmentize', '-l', 'json', '-f', 'html'],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE
+        )
+        out, _ = p.communicate(json.dumps(config, indent=4).encode())
+        qcprot['config'] = out.decode()
+
         qcprot['runs'] = []
 
-        for run_el in runs:
+        #for run_el in runs:  # openms 1.12?
+        for run_el in tree.findall('RunQuality'):
             run = {
                 'id': run_el.get('ID'),
                 'quality_params': [],
@@ -311,7 +323,10 @@ rule HTML:
             qcprot['runs'].append(run)
             run['plots'] = make_qc_plots(str(input), run=run['id'])
             data = run['quality_params']
-            quality_params = run_el.findall(NAMESPACE + 'qualityParameter')
+
+            #openms 1.12
+            #quality_params = run_el.findall(NAMESPACE + 'qualityParameter')
+            quality_params = run_el.findall('QualityParameter')
             for param_el in quality_params:
                 if 'value' in param_el.keys() and 'name' in param_el.keys():
                     data.append((param_el.get('name'), param_el.get('value')))
@@ -319,5 +334,4 @@ rule HTML:
         with open(pjoin(R_HOME, 'report_template.html')) as f:
             template = jinja2.Template(f.read())
             with open(str(output), 'w') as f_out:
-                print(qcprot)
                 f_out.write(template.render(qcprot=qcprot))

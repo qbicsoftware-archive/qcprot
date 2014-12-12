@@ -13,6 +13,10 @@
         </li>
         {% endfor %}
     </ul>
+    <br/>
+    The following parameters were used:
+    <br/>
+    {{ qcprot.config }}
     {% if "ini_diff" in qcprot %}
         The ini files were changed. Changes to the standard qcprot parameters:
         <br/>
@@ -31,29 +35,29 @@
         </tr>
     {% endfor %}
     </table>
-    {% for plot in run.plots %}
+    {% for name, plot in run.plots|dictsort %}
         <div class="qcprot-plot">
             <h3> {{ plot.title|e }} </h3>
             {% if "desc" in plot %}
                 {{ plot["desc"]|safe }}
             {% endif %}
-            {% if "png" in plot and "svg" not in plot %}
-                <img src="data:image/png;base64,{{ attach.plot_data|safe }}"/>
+            {% if "png" in plot %}
+                <img src="data:image/png;base64,{{ plot.png|safe }}"/>
             {% endif %}
             {% if "svg" in plot %}
-                {{ plot[svg]|safe }}
+                {{ plot.svg|safe }}
             {% endif %}
-            {% if "table" in attach %}
+            {% if "table" in plot %}
                 <table class="qcprot-table table">
                     <thead>
                         <tr>
-                        {% for val in attach.table[0] %}
+                        {% for val in plot.table[0] %}
                             <th> {{ val|e }} </th>
                         {% endfor %}
                         </tr>
                     </thead>
                     </tbody>
-                        {% for row in attach.table[1:] %}
+                        {% for row in plot.table[1:] %}
                             <tr>
                             {% for val in row %}
                                 <td class=qcprot-table-value>
