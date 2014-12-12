@@ -216,8 +216,8 @@ rule QCCalculator:
 
 def make_qc_plots(qcml, run=None):
     accessions = {
-        'fractional_mass': 'QC:0000038',
-        'mass_accuracy': 'QC:0000038',
+        'features': 'QC:0000047',
+        'identifications': 'QC:0000038',
         'mass_error': 'QC:0000038',
         'tic': 'QC:0000022',
     }
