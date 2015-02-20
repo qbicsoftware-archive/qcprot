@@ -220,6 +220,7 @@ def make_qc_plots(qcml, run=None):
         'identifications': 'QC:0000038',
         'mass_error': 'QC:0000038',
         'tic': 'QC:0000022',
+        'raw_MS1': 'QC:0000044',
     }
 
     with tempfile.TemporaryDirectory() as tmp:
