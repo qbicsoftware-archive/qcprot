@@ -272,8 +272,15 @@ def make_qc_plots(qcml, run=None):
     return plots
 
 
-rule HTML:
+rule FixQCML:
     input: "work/QCCalculator/{name}.qcML"
+    output: "work/QCCalculator/{name}_fixed.qcML"
+    shell:
+        'grep -Fv "UTF-8" {input} > {output}'
+
+
+rule HTML:
+    input: "work/QCCalculator/{name}_fixed.qcML"
     output: os.path.join(RESULT, "{name}.html")
     run:
         #NAMESPACE = "{http://www.prime-xs.eu/ms/qcml}"  # openms 1.12?
