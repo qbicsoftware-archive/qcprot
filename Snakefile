@@ -288,7 +288,7 @@ rule HTML:
         tree = ElementTree(file=str(input))
         runs = tree.findall(NAMESPACE + 'runQuality')
 
-        fastas = config['fasta']
+        fastas = config['params']['fasta']
         if not isinstance(fastas, list):
             fastas = list(fastas)
 
