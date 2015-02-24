@@ -162,6 +162,9 @@ rule XTandemAdapter:
     params: params('XTandemAdapter')
     run:
         extra = ['-database', str(input.fasta)]
+        key = "precursor_mass_tolerance"
+        if key in params:
+            extra += ["-" + key, str(params[key])]
         if 'xtandem_executable' in config:
             extra += ['-xtandem_executable', config['xtandem_executable']]
         openms.XTandemAdapter(input.mzml, output, extra_args=extra, ini=params)
