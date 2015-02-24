@@ -15,18 +15,27 @@ import csv
 
 configfile: "config.json"
 
-for key in ['R_HOME', 'OPENMS_BIN', 'QCPROT_VERSION']:
-    if key not in os.environ:
-        print("Environment variable %s is not defined. Aborting." % key,
-              file=sys.stderr)
-        exit(1)
-
 if not pexists('work'):
     os.mkdir("work")
 
-R_HOME = os.environ['R_HOME']
-OPENMS_BIN = os.environ['OPENMS_BIN']
-QCPROT_VERSION = os.environ['QCPROT_VERSION']
+SNAKEDIR = config['snakedir']
+R_HOME = os.path.join(SNAKEDIR, 'r_scripts')
+
+try:
+    path = subprocess.check_output(["which", "IDMerger"]).decode()
+    OPENMS_BIN = os.path.dirname(path)
+except subprocess.CalledProcessError:
+    OPENMS_BIN = "/usr/bin"
+
+QCPROT_VERSION = config['version']
+INI_PATH = os.path.join(SNAKEDIR, 'inis')
+DATA = config['data_dir']
+RESULT = config['result_dir']
+if not os.path.exists(RESULT):
+    os.mkdir(RESULT)
+LOGS = os.path.join(RESULT, 'logs')
+if not os.path.exists(LOGS):
+    os.mkdir(LOGS)
 
 class OpenMS:
     def __init__(self, bin_path, ini_dir, log_dir):
@@ -74,8 +83,7 @@ class OpenMS:
 
         return wrapper
 
-INI_PATH = config.get('ini_path', os.environ.get('INI_PATH', 'inis'))
-openms = OpenMS(OPENMS_BIN, INI_PATH, 'logs')
+openms = OpenMS(OPENMS_BIN, INI_PATH, LOGS)
 
 # store the content of the ini file, so that snakemake will run
 # rules agrain if the parameters inside the file change.
@@ -91,20 +99,20 @@ def params(name):
 
 
 INPUT_FILES = []
-for name in os.listdir('mzml'):
+for name in os.listdir(DATA):
     if name.lower().endswith('.mzml'):
         INPUT_FILES.append(os.path.basename(name)[:-5])
         if not name.endswith('.mzML'):
-            print("Extension mzML is case sensitive.", file=sys.stderr)
-            exit(1)
+            raise ValueError("Extension mzML is case sensitive")
 
 
 rule all:
-    input: ["result/{name}.html".format(name=name) for name in INPUT_FILES]
+    input: ["{result}/{name}.html".format(name=name, result=RESULT) \
+            for name in INPUT_FILES]
 
 
 rule FileFilter:
-    input: "mzml/{name}.mzML"
+    input: os.path.join(DATA, "{name}.mzML")
     output: "work/FileFilter/{name}.mzML"
     run:
         openms.FileFilter(input, output, extra_args=['-sort'])
@@ -127,7 +135,7 @@ rule FeatureFinderCentroided:
 
 
 rule CombineFastas:
-    input: fasta=config["fasta"]
+    input: fasta=config["params"]["fasta"]
     output: "work/CombineFastas/database.fasta"
     run:
         fastas = input.fasta
@@ -204,7 +212,7 @@ rule IDMapper:
 
 
 rule QCCalculator:
-    input: mzml="mzml/{name}.mzML", \
+    input: mzml=os.path.join(DATA, "{name}.mzML"), \
            feature="work/IDMapper/{name}.featureXML", \
            idxml="work/IDFilter/{name}.idXML"
     output: "work/QCCalculator/{name}.qcML"
@@ -263,7 +271,7 @@ def make_qc_plots(qcml, run=None):
 
 rule HTML:
     input: "work/QCCalculator/{name}.qcML"
-    output: "result/{name}.html"
+    output: os.path.join(RESULT, "{name}.html")
     run:
         #NAMESPACE = "{http://www.prime-xs.eu/ms/qcml}"  # openms 1.12?
         NAMESPACE = ""
