@@ -283,8 +283,8 @@ rule HTML:
     input: "work/QCCalculator/{name}_fixed.qcML"
     output: os.path.join(RESULT, "{name}.html")
     run:
-        #NAMESPACE = "{http://www.prime-xs.eu/ms/qcml}"  # openms 1.12?
-        NAMESPACE = ""
+        NAMESPACE = "{http://www.prime-xs.eu/ms/qcml}"  # openms 1.12?
+        #NAMESPACE = ""
         tree = ElementTree(file=str(input))
         runs = tree.findall(NAMESPACE + 'runQuality')
 
@@ -333,8 +333,8 @@ rule HTML:
 
         qcprot['runs'] = []
 
-        #for run_el in runs:  # openms 1.12?
-        for run_el in tree.findall('RunQuality'):
+        for run_el in runs:  # openms 1.12?:
+            #for run_el in tree.findall('RunQuality'):
             run = {
                 'id': run_el.get('ID'),
                 'quality_params': [],
@@ -344,8 +344,8 @@ rule HTML:
             data = run['quality_params']
 
             #openms 1.12
-            #quality_params = run_el.findall(NAMESPACE + 'qualityParameter')
-            quality_params = run_el.findall('QualityParameter')
+            quality_params = run_el.findall(NAMESPACE + 'qualityParameter')
+            #quality_params = run_el.findall('QualityParameter')
             for param_el in quality_params:
                 if 'value' in param_el.keys() and 'name' in param_el.keys():
                     data.append((param_el.get('name'), param_el.get('value')))
