@@ -246,7 +246,10 @@ def make_qc_plots(qcml, run=None):
         for file in os.listdir(R_HOME):
             if os.path.splitext(file)[1].lower() == '.r':
                 script = os.path.join(R_HOME, file)
-                subprocess.call(['Rscript', script, tmp, plot_dir])
+                try:
+                    subprocess.check_output(['Rscript', script, tmp, plot_dir])
+                except subprocess.CalledProcessError:
+                    print("Rscript returned non-zero. Ignoring.")
 
         plots = {}
         files = os.listdir(plot_dir)
