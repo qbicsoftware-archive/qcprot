@@ -14,7 +14,6 @@ with open(snake_out, 'w') as out, open(snake_err, 'w') as err:
         [
             "snakemake",
             "--snakefile", os.path.join(config['src'], 'Snakefile'),
-            "--directory", config['var'],
             "-j", "10",
         ],
         stdout=out, stderr=err

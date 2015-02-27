@@ -13,6 +13,7 @@ import base64
 import csv
 
 configfile: "config.json"
+workdir: config['var']
 
 SNAKEDIR = config['src']
 
@@ -138,7 +139,7 @@ rule FeatureFinderCentroided:
 
 
 rule CombineFastas:
-    input: fasta=expand("ref/{name}", ref=REF, name=config["params"]["fasta"])
+    input: fasta=expand("{ref}/{name}", ref=REF, name=config["params"]["fasta"])
     output: "CombineFastas/database.fasta"
     run:
         fastas = input.fasta
@@ -296,7 +297,7 @@ rule HTML:
         tree = ElementTree(file=str(input))
         runs = tree.findall(NAMESPACE + 'runQuality')
 
-        fastas = config['params']['fasta']
+        fastas = expand("{ref}/{name}", name=config['params']['fasta'], ref=REF)
         if not isinstance(fastas, list):
             fastas = list(fastas)
 
