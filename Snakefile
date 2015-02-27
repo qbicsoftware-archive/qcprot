@@ -29,7 +29,7 @@ INI_PATH = os.path.join(SNAKEDIR, 'inis')
 
 DATA = config['data']
 RESULT = config['result']
-LOGS = config['log']
+LOGS = config['logs']
 
 try:
     path = subprocess.check_output(["which", "IDMerger"]).decode()

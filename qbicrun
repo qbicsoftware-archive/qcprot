@@ -6,8 +6,8 @@ import subprocess
 with open("config.json") as conf:
     config = json.load(conf)
 
-snake_out = os.path.join(config['log'], "snake.out")
-snake_err = os.path.join(config['log'], "snake.err")
+snake_out = os.path.join(config['logs'], "snake.out")
+snake_err = os.path.join(config['logs'], "snake.err")
 
 with open(snake_out, 'w') as out, open(snake_err, 'w') as err:
     snake = subprocess.check_call(
