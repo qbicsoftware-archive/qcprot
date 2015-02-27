@@ -4,7 +4,6 @@ import subprocess
 import tempfile
 import uuid
 import shutil
-import jinja2
 from datetime import datetime
 from os.path import join as pjoin
 from os.path import exists as pexists
@@ -15,27 +14,28 @@ import csv
 
 configfile: "config.json"
 
-if not pexists('work'):
-    os.mkdir("work")
+SNAKEDIR = config['src']
 
-SNAKEDIR = config['snakedir']
+try:
+    VERSION = subprocess.check_output(
+        ['git', 'describe', '--tags', '--always', '--dirty'],
+        cwd=SNAKEDIR
+    ).decode().strip()
+except subprocess.CalledProcessError:
+    VERSION = 'unknown'
+
 R_HOME = os.path.join(SNAKEDIR, 'r_scripts')
+INI_PATH = os.path.join(SNAKEDIR, 'inis')
+
+DATA = config['data']
+RESULT = config['result']
+LOGS = config['log']
 
 try:
     path = subprocess.check_output(["which", "IDMerger"]).decode()
     OPENMS_BIN = os.path.dirname(path)
 except subprocess.CalledProcessError:
     OPENMS_BIN = "/usr/bin"
-
-QCPROT_VERSION = config['version']
-INI_PATH = os.path.join(SNAKEDIR, 'inis')
-DATA = config['data_dir']
-RESULT = config['result_dir']
-if not os.path.exists(RESULT):
-    os.mkdir(RESULT)
-LOGS = os.path.join(RESULT, 'logs')
-if not os.path.exists(LOGS):
-    os.mkdir(LOGS)
 
 class OpenMS:
     def __init__(self, bin_path, ini_dir, log_dir):
@@ -104,31 +104,33 @@ for name in os.listdir(DATA):
         INPUT_FILES.append(os.path.basename(name)[:-5])
         if not name.endswith('.mzML'):
             raise ValueError("Extension mzML is case sensitive")
+    else:
+        print("Ignoring unknown input file %s" % name)
 
 
 rule all:
-    input: ["{result}/{name}.html".format(name=name, result=RESULT) \
-            for name in INPUT_FILES]
+    input: expand("{result}/{name}.html", name=INPUT_FILES, result=RESULT), \
+           expand("{result}/{name}.idXML", name=INPUT_FILES, result=RESULT)
 
 
 rule FileFilter:
     input: os.path.join(DATA, "{name}.mzML")
-    output: "work/FileFilter/{name}.mzML"
+    output: "FileFilter/{name}.mzML"
     run:
         openms.FileFilter(input, output, extra_args=['-sort'])
 
 
 rule PeakPicker:
-    input: "work/FileFilter/{name}.mzML"
-    output: "work/PeakPicker/{name}.mzML"
+    input: "FileFilter/{name}.mzML"
+    output: "PeakPicker/{name}.mzML"
     params: params('PeakPickerHiRes')
     run:
         openms.PeakPickerHiRes(input, output, ini=params)
 
 
 rule FeatureFinderCentroided:
-    input: "work/PeakPicker/{name}.mzML"
-    output: "work/FeatureFinderCentroided/{name}.featureXML"
+    input: "PeakPicker/{name}.mzML"
+    output: "FeatureFinderCentroided/{name}.featureXML"
     params: params('FeatureFinderCentroided')
     run:
         openms.FeatureFinderCentroided(input, output, ini=params)
@@ -136,7 +138,7 @@ rule FeatureFinderCentroided:
 
 rule CombineFastas:
     input: fasta=config["params"]["fasta"]
-    output: "work/CombineFastas/database.fasta"
+    output: "CombineFastas/database.fasta"
     run:
         fastas = input.fasta
         if not isinstance(input.fasta, list):
@@ -146,8 +148,8 @@ rule CombineFastas:
 
 
 rule DecoyDatabase:
-    input: "work/CombineFastas/database.fasta"
-    output: "work/DecoyDatabase/database.fasta"
+    input: "CombineFastas/database.fasta"
+    output: "DecoyDatabase/database.fasta"
     params: params('DecoyDatabase')
     run:
         if config.get('fasta_has_decoy', False):
@@ -157,8 +159,8 @@ rule DecoyDatabase:
 
 
 rule XTandemAdapter:
-    input: fasta=rules.DecoyDatabase.output, mzml="work/PeakPicker/{name}.mzML"
-    output: "work/XTandemAdapter/{name}.idXML"
+    input: fasta=rules.DecoyDatabase.output, mzml="PeakPicker/{name}.mzML"
+    output: "XTandemAdapter/{name}.idXML"
     params: params('XTandemAdapter')
     run:
         extra = ['-database', str(input.fasta)]
@@ -171,8 +173,8 @@ rule XTandemAdapter:
 
 
 rule IDPosteriorError:
-    input: "work/XTandemAdapter/{name}.idXML"
-    output: "work/IDPosteriorXTandem/{name}.idXML"
+    input: "XTandemAdapter/{name}.idXML"
+    output: "IDPosteriorXTandem/{name}.idXML"
     params: params('IDPosteriorErrorProbability')
     run:
         openms.IDPosteriorErrorProbability(input, output, ini=params)
@@ -180,8 +182,8 @@ rule IDPosteriorError:
 
 rule PeptideIndexer:
     input: fasta=rules.DecoyDatabase.output, \
-           idxml="work/IDPosteriorXTandem/{name}.idXML"
-    output: "work/PeptideIndexer/{name}.idXML"
+           idxml="IDPosteriorXTandem/{name}.idXML"
+    output: "PeptideIndexer/{name}.idXML"
     params: params('PeptideIndexer')
     run:
         extra=['-fasta', str(input.fasta)]
@@ -189,25 +191,26 @@ rule PeptideIndexer:
 
 
 rule FalseDiscoveryRate:
-    input: "work/PeptideIndexer/{name}.idXML"
-    output: "work/FalseDiscoveryRate/{name}.idXML"
+    input: "PeptideIndexer/{name}.idXML"
+    output: "FalseDiscoveryRate/{name}.idXML"
     params: params('FalseDiscoveryRate')
     run:
         openms.FalseDiscoveryRate(input, output, ini=params)
 
 
 rule IDFilter:
-    input: "work/FalseDiscoveryRate/{name}.idXML"
-    output: "work/IDFilter/{name}.idXML"
+    input: "FalseDiscoveryRate/{name}.idXML"
+    output: "IDFilter/{name}.idXML", os.path.join(RESULT, "{name}.idXML")
     params: params('IDFilter')
     run:
-        openms.IDFilter(input, output, ini=params)
+        openms.IDFilter(input, output[0], ini=params)
+        os.link(str(input), str(output[1]))
 
 
 rule IDMapper:
-    input: feature="work/FeatureFinderCentroided/{name}.featureXML", \
-           idxml="work/IDFilter/{name}.idXML"
-    output: 'work/IDMapper/{name}.featureXML'
+    input: feature="FeatureFinderCentroided/{name}.featureXML", \
+           idxml="IDFilter/{name}.idXML"
+    output: 'IDMapper/{name}.featureXML'
     params: params('IDMapper')
     run:
         extra = ['-id', str(input.idxml)]
@@ -216,9 +219,9 @@ rule IDMapper:
 
 rule QCCalculator:
     input: mzml=os.path.join(DATA, "{name}.mzML"), \
-           feature="work/IDMapper/{name}.featureXML", \
-           idxml="work/IDFilter/{name}.idXML"
-    output: "work/QCCalculator/{name}.qcML"
+           feature="IDMapper/{name}.featureXML", \
+           idxml="IDFilter/{name}.idXML"
+    output: "QCCalculator/{name}.qcML"
     params: params('QCCalculator')
     run:
         extra = ['-feature', input.feature, '-id', input.idxml]
@@ -276,16 +279,17 @@ def make_qc_plots(qcml, run=None):
 
 
 rule FixQCML:
-    input: "work/QCCalculator/{name}.qcML"
-    output: "work/QCCalculator/{name}_fixed.qcML"
+    input: "QCCalculator/{name}.qcML"
+    output: "QCCalculator/{name}_fixed.qcML"
     shell:
         'grep -Fv "UTF-8" {input} > {output}'
 
 
 rule HTML:
-    input: "work/QCCalculator/{name}_fixed.qcML"
+    input: "QCCalculator/{name}_fixed.qcML"
     output: os.path.join(RESULT, "{name}.html")
     run:
+        import jinja2
         NAMESPACE = "{http://www.prime-xs.eu/ms/qcml}"  # openms 1.12?
         #NAMESPACE = ""
         tree = ElementTree(file=str(input))
