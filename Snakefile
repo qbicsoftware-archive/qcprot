@@ -30,6 +30,7 @@ INI_PATH = os.path.join(SNAKEDIR, 'inis')
 DATA = config['data']
 RESULT = config['result']
 LOGS = config['logs']
+REF = config['ref']
 
 try:
     path = subprocess.check_output(["which", "IDMerger"]).decode()
@@ -137,7 +138,7 @@ rule FeatureFinderCentroided:
 
 
 rule CombineFastas:
-    input: fasta=config["params"]["fasta"]
+    input: fasta=expand("ref/{name}", ref=REF, name=config["params"]["fasta"])
     output: "CombineFastas/database.fasta"
     run:
         fastas = input.fasta
