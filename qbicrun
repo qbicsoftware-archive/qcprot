@@ -3,50 +3,19 @@ import os
 import json
 import subprocess
 
-with open('params.json') as f:
-    params = json.load(f)
+with open("config.json") as conf:
+    config = json.load(conf)
 
-config = {}
-config['params'] = params
-snakedir = os.path.abspath(os.path.dirname(__file__))
-config['snakedir'] = snakedir
-workflow_name = os.path.basename(snakedir)
-config['workflow_name'] = workflow_name
-basedir = os.path.join(snakedir, '../..')
-
-# relative to work_dir
-config['work_dir'] = os.path.join(basedir, 'var', workflow_name)
-os.mkdir(config['work_dir'])
-config['result_dir'] = os.path.join('../..', 'result', workflow_name)
-config['data_dir'] = os.path.join('../..', 'data')
-
-try:
-    config['version'] = subprocess.check_output(
-        ['git', 'describe', '--tags', '--always', '--dirty']
-    ).decode()
-except subprocess.CalledProcessError:
-    config['version'] = "unknown"
-
-with open(os.path.join(config['work_dir'], 'config.json'), 'w') as f:
-    json.dump(config, f)
-
-logs = os.path.join(basedir, "result", workflow_name, "logs")
-if not os.path.exists(logs):
-    os.makedirs(logs)
-
-snake_out = os.path.join(logs, "snake.out")
-snake_err = os.path.join(logs, "snake.err")
+snake_out = os.path.join(config['log'], "snake.out")
+snake_err = os.path.join(config['log'], "snake.err")
 
 with open(snake_out, 'w') as out, open(snake_err, 'w') as err:
-    snake = subprocess.Popen(
+    snake = subprocess.check_call(
         [
             "snakemake",
-            "--snakefile", os.path.join(snakedir, 'Snakefile'),
+            "--snakefile", os.path.join(config['src'], 'Snakefile'),
             "--directory", config['work_dir'],
             "-j", "10",
         ],
         stdout=out, stderr=err
     )
-
-    if snake.wait():
-        raise ValueError("Snakemake failed")
