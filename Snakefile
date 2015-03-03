@@ -282,13 +282,13 @@ def make_qc_plots(qcml, run=None):
 
 rule FixQCML:
     input: "QCCalculator/{name}.qcML"
-    output: "QCCalculator/{name}_fixed.qcML"
+    output: "QCCalculator_fixed/{name}.qcML"
     shell:
         'grep -Fv "UTF-8" {input} > {output}'
 
 
 rule HTML:
-    input: "QCCalculator/{name}_fixed.qcML"
+    input: "QCCalculator_fixed/{name}.qcML"
     output: os.path.join(RESULT, "{name}.html")
     run:
         import jinja2
