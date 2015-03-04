@@ -11,6 +11,8 @@ from xml.etree.ElementTree import ElementTree
 import hashlib
 import base64
 import csv
+import glob
+import functools
 
 configfile: "config.json"
 workdir: config['var']
@@ -53,8 +55,13 @@ class OpenMS:
             raise ValueError("OpenMS tool not found: %s" % name)
 
         def wrapper(input, output, logfile=None, extra_args=None, ini=None):
-            if output is not None and not pexists(os.path.dirname(str(output))):
-                os.mkdir(os.path.dirname(str(output)))
+            if output is not None and not isinstance(output, list):
+                if not pexists(os.path.dirname(str(output))):
+                    os.mkdir(os.path.dirname(str(output)))
+            elif output is not None:
+                for out in output:
+                    if not pexists(os.path.dirname(out)):
+                        os.mkdir(os.path.dirname(out))
             if extra_args is None:
                 extra_args = []
             if logfile is None:
@@ -66,9 +73,15 @@ class OpenMS:
 
             command = [pjoin(self._bin_path, name)]
             if input is not None:
-                command += ['-in'] + [str(input)]
+                if isinstance(input, list):
+                    command += ['-in'] + list(input)
+                else:
+                    command += ['-in'] + [str(input)]
             if output is not None:
-                command += ['-out'] + [str(output)]
+                if isinstance(output, list):
+                    command += ['-out'] + list(output)
+                else:
+                    command += ['-out'] + [str(output)]
             if ini is not None:
                 if isinstance(ini, list):
                     if not len(ini) == 1:
@@ -110,9 +123,19 @@ for name in os.listdir(DATA):
         print("Ignoring unknown input file %s" % name)
 
 
+samples = config['samples']
+
+
 rule all:
     input: expand("{result}/{name}.html", name=INPUT_FILES, result=RESULT), \
-           expand("{result}/{name}.idXML", name=INPUT_FILES, result=RESULT)
+           expand("{result}/{sample}.csv", sample=samples.keys(), result=RESULT) \
+           expand("{result}/all.idXML", result=RESULT)
+
+
+rule IdToResults:
+    input: "work/{target}/{sample}.idXML"
+    output: os.path.join(RESULTS, "{sample}_{target}.idXML")
+    shell: "ln {input} {output}"
 
 
 rule FileFilter:
@@ -174,18 +197,72 @@ rule XTandemAdapter:
         openms.XTandemAdapter(input.mzml, output, extra_args=extra, ini=params)
 
 
-rule IDPosteriorError:
-    input: "XTandemAdapter/{name}.idXML"
-    output: "IDPosteriorXTandem/{name}.idXML"
-    params: params('IDPosteriorErrorProbability')
+def files_by_sample(format_string):
+    def inner(wildcards):
+        if isinstance(wildcards, str):
+            sample = wildcards
+        else:
+            sample = wildcards['sample']
+        names = []
+        for pattern in config["samples"][sample]:
+            for file in glob.glob(os.path.join(DATA, pattern)):
+                path, name = os.path.split(file)
+                base, ext = os.path.splitext(name)
+                names.append(base)
+        r = expand(format_string, name=names)
+        return r
+    return inner
+
+
+def all_files(format_string):
+    def inner(wildcards):
+        samples = config['samples'].keys()
+        print(samples)
+        lists = (files_by_sample(format_string)(sample) for sample in samples)
+        r = sum(lists, [])
+        print(r)
+        return r
+    return inner
+
+
+rule IDMerger:
+    input: files_by_sample("work/XTandemAdapter/{name}.idXML")
+    output: "work/IDMerger/{sample}.idXML"
+    params: params("IDMerger")
     run:
-        openms.IDPosteriorErrorProbability(input, output, ini=params)
+        openms.IDMerger(list(input), output, ini=params)
+
+
+rule IDMergerAll:
+    input: all_files("work/XTandemAdapter/{name}.idXML")
+    output: "work/IDMergerAll/all.idXML"
+    params: params("IDMerger")
+    run:
+        openms.IDMerger(list(input), output, ini=params)
+
+
+rule PeptideIndexerAll:
+    input: fasta=rules.DecoyDatabase.output, \
+           idxml="work/IDMergerAll/all.idXML"
+    output: "work/PeptideIndexerAll/all.idXML"
+    params: params('PeptideIndexer')
+    run:
+        extra=['-fasta', str(input.fasta)]
+        openms.PeptideIndexer(input.idxml, output, extra_args=extra, ini=params)
+
+
+rule FalseDiscoveryRateAll:
+    input: "work/PeptideIndexerAll/all.idXML"
+    output: "work/FalseDiscoveryRateAll/all.idXML"
+    params: params('FalseDiscoveryRate')
+    run:
+        openms.FalseDiscoveryRate(input, output, ini=params)
 
 
 rule PeptideIndexer:
     input: fasta=rules.DecoyDatabase.output, \
-           idxml="IDPosteriorXTandem/{name}.idXML"
-    output: "PeptideIndexer/{name}.idXML"
+           idxml="IDMerger/{sample}.idXML"
+    output: "PeptideIndexer/{sample}.idXML"
     params: params('PeptideIndexer')
     run:
         extra=['-fasta', str(input.fasta)]
@@ -193,30 +270,87 @@ rule PeptideIndexer:
 
 
 rule FalseDiscoveryRate:
-    input: "PeptideIndexer/{name}.idXML"
-    output: "FalseDiscoveryRate/{name}.idXML"
+    input: "PeptideIndexer/{sample}.idXML"
+    output: "FalseDiscoveryRate/{sample}.idXML"
     params: params('FalseDiscoveryRate')
     run:
         openms.FalseDiscoveryRate(input, output, ini=params)
 
 
-rule IDFilter:
-    input: "FalseDiscoveryRate/{name}.idXML"
-    output: "IDFilter/{name}.idXML", os.path.join(RESULT, "{name}.idXML")
-    params: params('IDFilter')
+rule IDRipper:
+    input: "FalseDiscoveryRate/{sample}.idXML"
+    output: "IDRipper/{sample}"
+    params: params('IDRipper')
     run:
-        openms.IDFilter(input, output[0], ini=params)
-        os.link(str(input), str(output[1]))
+        os.mkdir(output[0])
+        extra = ['-out_path', output[0] + '/bug_ignored']
+        openms.IDRipper(input, None, ini=params, extra_args=extra)
+        outfiles = files_by_sample(output[0] + '/{name}.idXML')(wildcards)
+        for file in outfiles:
+            assert os.path.exists(file), "Not found: %s" % file
 
 
 rule IDMapper:
-    input: feature="FeatureFinderCentroided/{name}.featureXML", \
-           idxml="IDFilter/{name}.idXML"
-    output: 'IDMapper/{name}.featureXML'
+    input: "IDRipper/{sample}", \
+           files_by_sample("FeatureFinderCentroided/{name}.featureXML")
+    output: 'IDMapper/{sample}'
     params: params('IDMapper')
     run:
-        extra = ['-id', str(input.idxml)]
-        openms.IDMapper(input.feature, output, extra_args=extra, ini=params)
+        idfiles = files_by_sample(input[0] + "/{name}.idXML")(wildcards)
+        features = files_by_sample(
+                "work/FeatureFinderCentroided/{name}.featureXML")(wildcards)
+        outfiles = files_by_sample(output[0] + "/{name}.featureXML")(wildcards)
+        for file in idfiles + features:
+            assert os.path.exists(file), "File not found: %s" % file
+        for idfile, feature, out in zip(idfiles, features, outfiles):
+            extra = ['-id', str(idfile)]
+            openms.IDMapper(feature, out, extra_args=extra, ini=params)
+        for outfile in outfiles:
+            assert os.path.exists(outfile), \
+                    "IDMapper did not produce file %s" % outfile
+
+
+rule MapAligner:
+    input: "IDMapper/{sample}"
+    output: "MapAligner/{sample}"
+    params: params('MapAlignerPoseClustering')
+    run:
+        infiles = files_by_sample(input[0] + "/{name}.featureXML")(wildcards)
+        outfiles = files_by_sample(output[0] + "/{name}.featureXML")(wildcards)
+        for file in infiles:
+            assert os.path.exists(file), "File not found: %s" % file
+
+        openms.MapAlignerPoseClustering(infiles, outfiles, ini=params)
+        for file in outfiles:
+            assert os.path.exists(file), "File not found: %s" % file
+
+
+rule FeatureLinker:
+    input: "MapAligner/{sample}"
+    output: "FeatureLinker/{sample}.consensusXML"
+    params: params('FeatureLinkerUnlabledQT')
+    run:
+        infiles = files_by_sample(input[0] + "/{name}.featureXML")(wildcards)
+        for file in infiles:
+            assert os.path.exists(file), "File not found: %s" % file
+
+        openms.FeatureLinkerUnlabeledQT(infiles, output, ini=params)
+
+
+rule ConsensusMapNormalizer:
+    input: "FeatureLinker/{sample}.consensusXML"
+    output: "ConsensusMapNormalizer/{sample}.consensusXML"
+    params: params('ConsensusMapNormalizer')
+    run:
+        openms.ConsensusMapNormalizer(input, output, ini=params)
+
+
+rule TextExporter:
+    input: "ConsensusMapNormalizer/{sample}.consensusXML"
+    output: os.path.join(RESULTS, "{sample}.csv")
+    params: params('TextExporter')
+    run:
+        openms.TextExporter(input, output, ini=params)
 
 
 rule QCCalculator:
@@ -292,8 +426,7 @@ rule HTML:
     output: os.path.join(RESULT, "{name}.html")
     run:
         import jinja2
-        NAMESPACE = "{http://www.prime-xs.eu/ms/qcml}"  # openms 1.12?
-        #NAMESPACE = ""
+        NAMESPACE = "{http://www.prime-xs.eu/ms/qcml}"
         tree = ElementTree(file=str(input))
         runs = tree.findall(NAMESPACE + 'runQuality')
 
@@ -341,9 +474,7 @@ rule HTML:
         qcprot['config'] = out.decode()
 
         qcprot['runs'] = []
-
-        for run_el in runs:  # openms 1.12?:
-            #for run_el in tree.findall('RunQuality'):
+        for run_el in runs:
             run = {
                 'id': run_el.get('ID'),
                 'quality_params': [],
@@ -354,7 +485,6 @@ rule HTML:
 
             #openms 1.12
             quality_params = run_el.findall(NAMESPACE + 'qualityParameter')
-            #quality_params = run_el.findall('QualityParameter')
             for param_el in quality_params:
                 if 'value' in param_el.keys() and 'name' in param_el.keys():
                     data.append((param_el.get('name'), param_el.get('value')))
