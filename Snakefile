@@ -41,8 +41,13 @@ class OpenMS:
             raise ValueError("OpenMS tool not found: %s" % name)
 
         def wrapper(input, output, logfile=None, extra_args=None, ini=None):
-            if output is not None and not pexists(os.path.dirname(str(output))):
-                os.mkdir(os.path.dirname(str(output)))
+            if output is not None and not isinstance(output, list):
+                if not pexists(os.path.dirname(str(output))):
+                    os.mkdir(os.path.dirname(str(output)))
+            elif output is not None:
+                for out in output:
+                    if not pexists(os.path.dirname(out)):
+                        os.mkdir(os.path.dirname(out))
             if extra_args is None:
                 extra_args = []
             if logfile is None:
@@ -75,6 +80,7 @@ class OpenMS:
             log_err = pjoin(self._log_dir, logfile + '.err')
             with open(log_std, 'w') as out:
                 with open(log_err, 'w') as err:
+                    print(command)
                     subprocess.check_call(command, stdout=out, stderr=err)
 
         return wrapper
@@ -116,7 +122,8 @@ samples = config['samples']
 
 
 rule all:
-    input: expand(os.path.join(RESULTS, "{sample}.csv"), sample=samples.keys())
+    input: expand(os.path.join(RESULTS, "{sample}.csv"), sample=samples.keys()), \
+           "work/FalseDiscoveryRateAll/all.idXML"
 
 
 rule IdToResults:
@@ -183,13 +190,28 @@ rule XTandemAdapter:
 
 def files_by_sample(format_string):
     def inner(wildcards):
+        if isinstance(wildcards, str):
+            sample = wildcards
+        else:
+            sample = wildcards['sample']
         names = []
-        for pattern in config["samples"][wildcards["sample"]]:
+        for pattern in config["samples"][sample]:
             for file in glob.glob(os.path.join(DATA, pattern)):
                 path, name = os.path.split(file)
                 base, ext = os.path.splitext(name)
                 names.append(base)
         r = expand(format_string, name=names)
+        return r
+    return inner
+
+
+def all_files(format_string):
+    def inner(wildcards):
+        samples = config['samples'].keys()
+        print(samples)
+        lists = (files_by_sample(format_string)(sample) for sample in samples)
+        r = sum(lists, [])
+        print(r)
         return r
     return inner
 
@@ -200,6 +222,32 @@ rule IDMerger:
     params: params("IDMerger")
     run:
         openms.IDMerger(list(input), output, ini=params)
+
+
+rule IDMergerAll:
+    input: all_files("work/XTandemAdapter/{name}.idXML")
+    output: "work/IDMergerAll/all.idXML"
+    params: params("IDMerger")
+    run:
+        openms.IDMerger(list(input), output, ini=params)
+
+
+rule PeptideIndexerAll:
+    input: fasta=rules.DecoyDatabase.output, \
+           idxml="work/IDMergerAll/all.idXML"
+    output: "work/PeptideIndexerAll/all.idXML"
+    params: params('PeptideIndexer')
+    run:
+        extra=['-fasta', str(input.fasta)]
+        openms.PeptideIndexer(input.idxml, output, extra_args=extra, ini=params)
+
+
+rule FalseDiscoveryRateAll:
+    input: "work/PeptideIndexerAll/all.idXML"
+    output: "work/FalseDiscoveryRateAll/all.idXML"
+    params: params('FalseDiscoveryRate')
+    run:
+        openms.FalseDiscoveryRate(input, output, ini=params)
 
 
 rule PeptideIndexer:
@@ -225,24 +273,32 @@ rule IDRipper:
     output: "work/IDRipper/{sample}"
     params: params('IDRipper')
     run:
-        out_dir = os.path.dirname(output)
-        openms.IDRipper(input, out_dir, ini=params)
+        os.mkdir(output[0])
+        extra = ['-out_path', output[0] + '/bug_ignored']
+        openms.IDRipper(input, None, ini=params, extra_args=extra)
+        outfiles = files_by_sample(output[0] + '/{name}.idXML')(wildcards)
+        for file in outfiles:
+            assert os.path.exists(file), "Not found: %s" % file
 
 
 rule IDMapper:
-    input: "work/IDRipper/{sample}"
+    input: "work/IDRipper/{sample}", \
+           files_by_sample("work/FeatureFinderCentroided/{name}.featureXML")
     output: 'work/IDMapper/{sample}'
     params: params('IDMapper')
     run:
-        idfiles = files_by_sample(input[0] + "/{name}")(wildcards)
+        idfiles = files_by_sample(input[0] + "/{name}.idXML")(wildcards)
         features = files_by_sample(
                 "work/FeatureFinderCentroided/{name}.featureXML")(wildcards)
-        outfiles = files_by_sample(output[0] + "/{name}")(wildcards)
-        for file in idfiles + features + outfiles:
-            assert os.path.exists(file)
+        outfiles = files_by_sample(output[0] + "/{name}.featureXML")(wildcards)
+        for file in idfiles + features:
+            assert os.path.exists(file), "File not found: %s" % file
         for idfile, feature, out in zip(idfiles, features, outfiles):
             extra = ['-id', str(idfile)]
             openms.IDMapper(feature, out, extra_args=extra, ini=params)
+        for outfile in outfiles:
+            assert os.path.exists(outfile), \
+                    "IDMapper did not produce file %s" % outfile
 
 
 rule MapAligner:
@@ -250,14 +306,14 @@ rule MapAligner:
     output: "work/MapAligner/{sample}"
     params: params('MapAlignerPoseClustering')
     run:
-        infiles = files_by_sample(input[0] + "/{name}")(wildcards)
-        outfiles = files_by_sample(output[0] + "/{name}")(wildcards)
+        infiles = files_by_sample(input[0] + "/{name}.featureXML")(wildcards)
+        outfiles = files_by_sample(output[0] + "/{name}.featureXML")(wildcards)
         for file in infiles:
-            assert os.path.exists(file)
-        for file in outfiles:
-            assert os.path.exists(file)
+            assert os.path.exists(file), "File not found: %s" % file
 
         openms.MapAlignerPoseClustering(infiles, outfiles, ini=params)
+        for file in outfiles:
+            assert os.path.exists(file), "File not found: %s" % file
 
 
 rule FeatureLinker:
@@ -265,9 +321,9 @@ rule FeatureLinker:
     output: "work/FeatureLinker/{sample}.consensusXML"
     params: params('FeatureLinkerUnlabledQT')
     run:
-        infiles = files_by_sample(input[0] + "/{name}")(wildcards)
+        infiles = files_by_sample(input[0] + "/{name}.featureXML")(wildcards)
         for file in infiles:
-            assert os.path.exists(file)
+            assert os.path.exists(file), "File not found: %s" % file
 
         openms.FeatureLinkerUnlabeledQT(infiles, output, ini=params)
 
