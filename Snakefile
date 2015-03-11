@@ -7,7 +7,7 @@ import shutil
 from datetime import datetime
 from os.path import join as pjoin
 from os.path import exists as pexists
-from xml.etree.ElementTree import ElementTree
+from xml.etree import ElementTree
 import hashlib
 import base64
 import csv
@@ -112,14 +112,39 @@ for name in os.listdir(DATA):
 
 rule all:
     input: expand("{result}/{name}.html", name=INPUT_FILES, result=RESULT), \
-           expand("{result}/{name}.idXML", name=INPUT_FILES, result=RESULT)
-
+           expand("{result}/{name}.idXML", name=INPUT_FILES, result=RESULT), \
+           expand("InjectionTime/{name}.txt", name=INPUT_FILES)
 
 rule FileFilter:
     input: os.path.join(DATA, "{name}.mzML")
     output: "FileFilter/{name}.mzML"
     run:
         openms.FileFilter(input, output, extra_args=['-sort'])
+
+
+rule InjectionTime:
+    input: os.path.join(DATA, "{name}.mzML")
+    output: "InjectionTime/{name}.txt"
+    run:
+        times = []
+        mses = []
+        retentions = []
+        
+        parser = ElementTree.iterparse(input[0], ["start", "end"])
+        _, root = next(parser)
+        
+        for event, elem in parser:
+            if event == "end" and elem.tag == "{http://psi.hupo.org/ms/mzml}spectrum":
+                injection_time = elem.find('.//{http://psi.hupo.org/ms/mzml}cvParam[@accession="MS:1000927"]').get("value")
+                times.append(injection_time)
+                ms = elem.find("{http://psi.hupo.org/ms/mzml}cvParam[@accession='MS:1000511']").get('value')
+                mses.append(ms)
+                ret = elem.find('.//{http://psi.hupo.org/ms/mzml}cvParam[@accession="MS:1000016"]').get('value')
+                retentions.append(ret)
+                root.clear()
+        with open(output[0], "w") as f:
+            for data in zip(times, mses, retentions):
+                f.write(",".join(data) + "\n")
 
 
 rule PeakPicker:
@@ -294,7 +319,7 @@ rule HTML:
         import jinja2
         NAMESPACE = "{http://www.prime-xs.eu/ms/qcml}"  # openms 1.12?
         #NAMESPACE = ""
-        tree = ElementTree(file=str(input))
+        tree = ElementTree.ElementTree(file=str(input))
         runs = tree.findall(NAMESPACE + 'runQuality')
 
         fastas = expand("{ref}/{name}", name=config['params']['fasta'], ref=REF)
