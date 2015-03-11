@@ -29,7 +29,7 @@ INI_PATH = os.path.join(SNAKEDIR, 'inis')
 
 DATA = config['data']
 RESULT = config['result']
-LOGS = config['log']
+LOGS = config['logs']
 
 try:
     path = subprocess.check_output(["which", "IDMerger"]).decode()
@@ -309,7 +309,7 @@ rule HTML:
 
         qcprot = {
             'date': datetime.strftime(datetime.now(), "%d. %B %Y at %H:%M"),
-            'version': QCPROT_VERSION,
+            'version': VERSION,
             'fasta_names': fastas,
             'fasta_md5s': fasta_md5,
             'fasta_sizes': fasta_size,
