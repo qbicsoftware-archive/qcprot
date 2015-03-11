@@ -311,7 +311,7 @@ rule HTML:
 
         qcprot = {
             'date': datetime.strftime(datetime.now(), "%d. %B %Y at %H:%M"),
-            'version': QCPROT_VERSION,
+            'version': VERSION,
             'fasta_names': fastas,
             'fasta_md5s': fasta_md5,
             'fasta_sizes': fasta_size,
