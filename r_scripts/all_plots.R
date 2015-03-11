@@ -160,6 +160,42 @@ id_ratios <- function(csv_dir, out_dir) {
   sink()
   
 }# id_ratios
+
+#------------------Injection times MS1 and MS2
+
+injection_times <- function(csv_dir, out_dir) {
+  
+  inj_times <- read.delim(file.path(csv_dir, "injection_times.csv"), header = TRUE, sep=",")
+
+  #ms1
+  name = "07_injection_times_ms1"
+  plot_path = file.path(out_dir, paste(name, ".png"))
+  png(plot_path, width=640, height=440, pointsize=12, bg="#FFFFFF", res=NA);
+  
+  ms1 = subset(inj_times, mslevel==1)
+  plot(ms1$rt, ms1$time, xlab="RT (minutes)", ylab="Ion Injection Time (ms)", cex=0.3,  main="MS 1")
+  
+  dev.off();
+  # write title
+  sink(file.path(out_dir, paste(name, ".title")))
+  cat("Injection Times MS1")
+  sink()
+  
+  #ms2
+  name = "08_injection_times_ms2"
+  plot_path = file.path(out_dir, paste(name, ".png"))
+  png(plot_path, width=640, height=440, pointsize=12, bg="#FFFFFF", res=NA);
+  
+  ms2 = subset(inj_times, mslevel==2)
+  plot(ms2$rt, ms2$time, xlab="RT (minutes)", ylab="Ion Injection Time (ms)", cex=0.3,  main="MS 2")
+  
+  dev.off();
+  # write title
+  sink(file.path(out_dir, paste(name, ".title")))
+  cat("Injection Times MS2")
+  sink()
+  
+}# end --Injection times
 #----------------------------------------
 
 
@@ -178,4 +214,6 @@ if (length(commandArgs(TRUE)) != 2) {
   tic(csv_dir, out_dir)
   charge(csv_dir, out_dir)
   id_ratios(csv_dir, out_dir)
+  injection_times(csv_dir, out_dir)
+ 
 }

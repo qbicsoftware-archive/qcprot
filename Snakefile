@@ -113,7 +113,7 @@ for name in os.listdir(DATA):
 rule all:
     input: expand("{result}/{name}.html", name=INPUT_FILES, result=RESULT), \
            expand("{result}/{name}.idXML", name=INPUT_FILES, result=RESULT), \
-           expand("InjectionTime/{name}.txt", name=INPUT_FILES)
+           expand("InjectionTime/{name}.csv", name=INPUT_FILES)
 
 rule FileFilter:
     input: os.path.join(DATA, "{name}.mzML")
@@ -124,7 +124,7 @@ rule FileFilter:
 
 rule InjectionTime:
     input: os.path.join(DATA, "{name}.mzML")
-    output: "InjectionTime/{name}.txt"
+    output: "InjectionTime/{name}.csv"
     run:
         times = []
         mses = []
@@ -143,6 +143,7 @@ rule InjectionTime:
                 retentions.append(ret)
                 root.clear()
         with open(output[0], "w") as f:
+            f.write(",".join(["time", "mslevel", "rt"]) + "\n")
             for data in zip(times, mses, retentions):
                 f.write(",".join(data) + "\n")
 
@@ -255,7 +256,7 @@ rule QCCalculator:
         openms.QCCalculator(input.mzml, output, extra_args=extra, ini=params)
 
 
-def make_qc_plots(qcml, run=None):
+def make_qc_plots(qcml, injection, run=None):
     accessions = {
         'features': 'QC:0000047',
         'identifications': 'QC:0000038',
@@ -272,6 +273,7 @@ def make_qc_plots(qcml, run=None):
 
         plot_dir = pjoin(tmp, 'plots')
         os.mkdir(plot_dir)
+        shutil.copy(injection, pjoin(tmp, 'injection_times.csv'))
 
         for file in os.listdir(R_HOME):
             if os.path.splitext(file)[1].lower() == '.r':
@@ -313,13 +315,14 @@ rule FixQCML:
 
 
 rule HTML:
-    input: "QCCalculator_fixed/{name}.qcML"
+    input: qcml="QCCalculator_fixed/{name}.qcML", \
+           injection="InjectionTime/{name}.csv"
     output: os.path.join(RESULT, "{name}.html")
     run:
         import jinja2
         NAMESPACE = "{http://www.prime-xs.eu/ms/qcml}"  # openms 1.12?
         #NAMESPACE = ""
-        tree = ElementTree.ElementTree(file=str(input))
+        tree = ElementTree.ElementTree(file=str(input['qcml']))
         runs = tree.findall(NAMESPACE + 'runQuality')
 
         fastas = expand("{ref}/{name}", name=config['params']['fasta'], ref=REF)
@@ -374,7 +377,7 @@ rule HTML:
                 'quality_params': [],
             }
             qcprot['runs'].append(run)
-            run['plots'] = make_qc_plots(str(input), run=run['id'])
+            run['plots'] = make_qc_plots(input['qcml'], input['injection'], run=run['id'])
             data = run['quality_params']
 
             #openms 1.12
