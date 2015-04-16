@@ -11,6 +11,7 @@ from xml.etree import ElementTree
 import hashlib
 import base64
 import csv
+import glob
 
 configfile: "config.json"
 workdir: config['var']
@@ -32,6 +33,12 @@ DATA = config['data']
 RESULT = config['result']
 LOGS = config['logs']
 REF = config['ref']
+
+if 'fasta' not in config['params']:
+    fastas = glob.glob(os.path.join(config['ref']), '*.fasta')
+    if not fastas:
+        raise ValueError("no fasta files supplied.")
+    config['params']['fasta'] = fastas
 
 try:
     path = subprocess.check_output(["which", "IDMerger"]).decode()
@@ -129,10 +136,10 @@ rule InjectionTime:
         times = []
         mses = []
         retentions = []
-        
+
         parser = ElementTree.iterparse(input[0], ["start", "end"])
         _, root = next(parser)
-        
+
         for event, elem in parser:
             if event == "end" and elem.tag == "{http://psi.hupo.org/ms/mzml}spectrum":
                 injection_time = elem.find('.//{http://psi.hupo.org/ms/mzml}cvParam[@accession="MS:1000927"]').get("value")
