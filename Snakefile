@@ -27,12 +27,12 @@ except subprocess.CalledProcessError:
     VERSION = 'unknown'
 
 R_HOME = os.path.join(SNAKEDIR, 'r_scripts')
-INI_PATH = os.path.join(SNAKEDIR, 'inis')
 
 DATA = config['data']
 RESULT = config['result']
 LOGS = config['logs']
 REF = config['ref']
+INI_PATH = config['inis']
 
 if 'fasta' not in config['params']:
     fastas = glob.glob(os.path.join(config['ref']), '*.fasta')
