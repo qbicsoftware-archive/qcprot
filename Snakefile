@@ -143,12 +143,15 @@ rule InjectionTime:
 
         for event, elem in parser:
             if event == "end" and elem.tag == "{http://psi.hupo.org/ms/mzml}spectrum":
-                injection_time = elem.find('.//{http://psi.hupo.org/ms/mzml}cvParam[@accession="MS:1000927"]').get("value")
-                times.append(injection_time)
-                ms = elem.find("{http://psi.hupo.org/ms/mzml}cvParam[@accession='MS:1000511']").get('value')
-                mses.append(ms)
-                ret = elem.find('.//{http://psi.hupo.org/ms/mzml}cvParam[@accession="MS:1000016"]').get('value')
-                retentions.append(ret)
+                try:
+                    injection_time = elem.find('.//{http://psi.hupo.org/ms/mzml}cvParam[@accession="MS:1000927"]').get("value")
+                    times.append(injection_time)
+                    ms = elem.find("{http://psi.hupo.org/ms/mzml}cvParam[@accession='MS:1000511']").get('value')
+                    mses.append(ms)
+                    ret = elem.find('.//{http://psi.hupo.org/ms/mzml}cvParam[@accession="MS:1000016"]').get('value')
+                    retentions.append(ret)
+                except AttributeError:
+                    pass
                 root.clear()
         with open(output[0], "w") as f:
             f.write(",".join(["time", "mslevel", "rt"]) + "\n")
