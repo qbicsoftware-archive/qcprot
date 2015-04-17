@@ -1,7 +1,7 @@
 #!/bin/sh
 #PBS -q cfc
 #PBS -A qbic
-#PBS -l nodes=1:ppn=10
+#PBS -l nodes=1:ppn=10:cfc
 #PBS -l walltime=40:00:00
 # properties = {properties}
 
