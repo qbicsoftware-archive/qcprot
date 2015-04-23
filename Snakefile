@@ -359,9 +359,8 @@ rule HTML:
         orig_ini = pjoin(R_HOME, '..', 'inis')
         popen = subprocess.Popen(
             ['diff', '-u', '-w', orig_ini, INI_PATH],
-	    stdout=subprocess.PIPE
+            stdout=subprocess.PIPE
         )
-        popen.wait()
         ini_diff = popen.communicate()[0].decode()
         if ini_diff.strip() != "":
 
