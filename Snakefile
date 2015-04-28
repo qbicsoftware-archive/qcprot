@@ -32,7 +32,7 @@ DATA = config['data']
 RESULT = config['result']
 LOGS = config['logs']
 REF = config['ref']
-INI_PATH = config['inis']
+INI_PATH = config['etc']
 
 if 'fasta' not in config['params']:
     fastas = glob.glob(os.path.join(config['ref'], '*.fasta'))
