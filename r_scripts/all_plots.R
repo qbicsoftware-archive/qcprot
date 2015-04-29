@@ -166,6 +166,9 @@ id_ratios <- function(csv_dir, out_dir) {
 injection_times <- function(csv_dir, out_dir) {
   
   inj_times <- read.delim(file.path(csv_dir, "injection_times.csv"), header = TRUE, sep=",")
+  if (num.rows(inj_times) == 0) {
+    return
+  }
 
   #ms1
   name = "07_injection_times_ms1"
