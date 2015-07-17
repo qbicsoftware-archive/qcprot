@@ -5,8 +5,9 @@
 #PBS -l walltime=40:00:00
 # properties = {properties}
 
-source /lustre_cfc/ws_qstor/ws/qeaco01-conda_openms-0/usr/bin/activate /lustre_cfc/ws_qstor/ws/qeaco01-conda_openms-0/usr
-module load lib/openms/1.11
+module load qbic/anaconda
+module load devel/qt/4.8.4
+module load qbic/openms/1.11.1-2996-g13ffbd7
 module load bio/xtandem/201309011-gnu-4.8
 module load math/R/3.1.0
 
