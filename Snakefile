@@ -390,7 +390,9 @@ rule HTML:
                 'quality_params': [],
             }
             qcprot['runs'].append(run)
-            run['plots'] = make_qc_plots(input['qcml'], input['injection'], run=run['id'])
+            run['plots'] = make_qc_plots(str(input['qcml']),
+                                         str(input['injection']),
+                                         run=run['id'])
             data = run['quality_params']
 
             #openms 1.12
