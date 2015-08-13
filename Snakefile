@@ -263,7 +263,7 @@ rule QCCalculator:
     output: "QCCalculator/{name}.qcML"
     params: params('QCCalculator')
     run:
-        extra = ['-feature', input.feature, '-id', input.idxml]
+        extra = ['-feature', str(input.feature), '-id', str(input.idxml)]
         openms.QCCalculator(input.mzml, output, extra_args=extra, ini=params)
 
 
