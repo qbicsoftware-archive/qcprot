@@ -34,6 +34,9 @@ LOGS = config['logs']
 REF = config['ref']
 INI_PATH = config['etc']
 
+if 'params' not in config:
+    config['params'] = {}
+
 if 'fasta' not in config['params']:
     fastas = glob.glob(os.path.join(config['ref'], '*.fasta'))
     fastas = [os.path.basename(f) for f in fastas]
