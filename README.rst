@@ -1,22 +1,34 @@
 Run a quality control workflow on mzML files from mass spec based proteomics.
 
-Execute ``qcprot`` with the working directory as parameter. This directory must
-contain a config file called ``config.json`` and a directory ``mzml`` that
-contains the input mzml files.
+This workflow is best executed through `qproject`.
+(https://github.com/qbicsoftware/qproject)
 
-Results will be written to a directory ``results`` in the workdir.
+Create the directory structure of the workdir (it should not exist):
 
-Example config file::
+```
+qproject create -t path/to/workdir -w github:qbicsoftware/qcprot
+```
 
-    {
-        "fasta" : "uniprot_sprot_101104_human_concat.fasta",
-        "fasta_has_decoy": false,
-        "ini_path" : "path/to/ini/files"
-    }
+Copy the mzML files to `<workdir>/data` and your fasta file(s) to
+`<workdir>/ref`.
 
-Only ``"fasta"`` is mandatory. If you want to include several fasta files
-(``'crap.fasta'!``) just specify a list of fasta files::
+Copy the ini files to `etc`:
 
-    {
-        "fasta" : ["uniprot_sprot_101104_human_concat.fasta", "crap.fasta"]
-    }
+```
+cd <workdir>/src/inis <workdir>/etc
+```
+
+and modify if necessary.
+
+Execute the workflow with
+
+```
+cd <workdir>/src
+snakemake
+```
+
+You can also adjust the jobscript and use qproject to execute the workflow:
+
+```
+qproject run -t <workdir>
+```
