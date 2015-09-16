@@ -42,5 +42,6 @@ qproject run -t <workdir>
 ```
 
 If qproject is used to execute `qcprot` some data about the run is
-stored in `<workdir>/archive` for reproducabiliy. This is still
-very much work in progress though.
+stored in `<workdir>/archive` for reproducibility. This is still
+very much work in progress though' The output of `snakemake`
+will end up in `<workdir>/logs/snake.err`.
