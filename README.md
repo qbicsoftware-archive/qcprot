@@ -5,6 +5,8 @@ Run a quality control workflow on mzML files from mass spec based proteomics.
   - snakemake
   - jinja2
   - qproject (eg. `pip install git+https://github.com/qbicsoftware/qproject`)
+  - xtandem
+  - R
 - openms 2.0 (there is a conda package that can be installed with `conda
   install -c aseyboldt openms` that might or might not work)
 
