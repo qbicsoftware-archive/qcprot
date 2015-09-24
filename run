@@ -8,6 +8,7 @@ with open("config.json") as conf:
 
 snake_out = os.path.join(config['logs'], "snake.out")
 snake_err = os.path.join(config['logs'], "snake.err")
+stats_path = os.path.join(config['logs'], "stats.json")
 
 with open(snake_out, 'w') as out, open(snake_err, 'w') as err:
     snake = subprocess.check_call(
@@ -18,6 +19,7 @@ with open(snake_out, 'w') as out, open(snake_err, 'w') as err:
             "--cluster", 'qsub',
             "--rerun-incomplete",
             "-j", "100",
+            "--stats", stats_path,
         ],
         stdout=out, stderr=err
     )
