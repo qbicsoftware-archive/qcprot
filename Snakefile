@@ -70,8 +70,22 @@ class OpenMS:
             raise ValueError("OpenMS tool not found: %s" % name)
 
         def wrapper(input, output, logfile=None, extra_args=None, ini=None):
-            if output is not None and not pexists(os.path.dirname(str(output))):
-                os.mkdir(os.path.dirname(str(output)))
+            if input is None:
+                input = []
+            if output is None:
+                output = []
+            if not isinstance(input, list):
+                input = [input]
+            input = [str(i) for i in input]
+            if not isinstance(output, list):
+                output = [output]
+            output = [str(i) for i in output]
+
+            for out in output:
+                dir = os.path.dirname(str(out))
+                if not pexists(dir):
+                    os.mkdir(dir)
+
             if extra_args is None:
                 extra_args = []
             if logfile is None:
@@ -82,18 +96,12 @@ class OpenMS:
                 logfile = '{}_{}'.format(name, identifier)
 
             command = [pjoin(self._bin_path, name)]
-            if input is not None:
+            if input:
                 command += ['-in']
-                if isinstance(input, list):
-                    command.extend(str(i) for i in input)
-                else:
-                    command.append(str(input))
-            if output is not None:
+                command.extend(input)
+            if output:
                 command += ['-out']
-                if isinstance(output, list):
-                    command.extend(str(i) for i in output)
-                else:
-                    command.append(str(output))
+                command.extend(output)
             if ini is not None:
                 if isinstance(ini, list):
                     if not len(ini) == 1:
