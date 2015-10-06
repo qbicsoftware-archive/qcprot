@@ -221,7 +221,8 @@ rule IDPosteriorError:
     input: "{tool}/{name}.idXML"
     output: "IDPosteriorError_{tool}/{name}.idXML"
     params: params('IDPosteriorErrorProbability')
-    run: openms.IDPosteriorErrorProbability(input, output, ini=params)
+    run:
+        openms.IDPosteriorErrorProbability(input, output, ini=params)
 
 
 rule ConsensusID:
@@ -230,14 +231,16 @@ rule ConsensusID:
         msgf="IDPosteriorError_MSGFPlusAdapter/{name}.idXML"
     output: "ConsensusID/{name}.idXML"
     params: params('ConsensusID')
-    run: openms.ConsensusID(input, output, ini=params)
+    run:
+        openms.ConsensusID(input, output, ini=params)
 
 
 rule IDFilter99:
     input: "ConsensusID/{name}.idXML"
     output: "IDFilter99/{name}.idXML"
     params: params('IDFilter99')
-    run: openms.IDFilter(input, output, ini=params)
+    run:
+        openms.IDFilter(input, output, ini=params)
 
 
 rule MapAlignerIdentification:
@@ -291,7 +294,8 @@ rule IDFilter:
     input: "IDMerger_all/all.idXML"
     output: "IDMerger_all/filtered.idXML"
     params: params('IDFilter60')
-    run: openms.IDFilter(input, output, ini=params)
+    run:
+        openms.IDFilter(input, output, ini=params)
 
 
 rule FeatureFinderIdentification:
@@ -320,7 +324,8 @@ rule Fido:
     input: "PeptideIndexer/all.idXML"
     output: result("proteins.idXML")
     params: params('FidoAdapter')
-    run: openms.FidoAdapter(input, output, ini=params)
+    run:
+        openms.FidoAdapter(input, output, ini=params)
 
 
 rule ProteinQuantifier:
