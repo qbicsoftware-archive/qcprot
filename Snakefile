@@ -244,10 +244,18 @@ rule IDPosteriorError:
         openms.IDPosteriorErrorProbability(input, output, ini=params)
 
 
-rule ConsensusID:
+rule IDMerger:
     input:
         tandem="IDPosteriorError_XTandemAdapter/{name}.idXML",
         msgf="IDPosteriorError_MSGFPlusAdapter/{name}.idXML"
+    output: "IDMerger/{name}.idXML"
+    params: params('IDMerger_engines')
+    run:
+        openms.IDMerger(input, output, ini=params)
+
+
+rule ConsensusID:
+    input: "IDMerger/{name}.idXML"
     output: "ConsensusID/{name}.idXML"
     params: params('ConsensusID')
     run:
