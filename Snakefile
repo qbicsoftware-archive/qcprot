@@ -83,9 +83,17 @@ class OpenMS:
 
             command = [pjoin(self._bin_path, name)]
             if input is not None:
-                command += ['-in'] + [str(input)]
+                command += ['-in']
+                if isinstance(input, list):
+                    command.extend(str(i) for i in input)
+                else:
+                    command.append(str(input))
             if output is not None:
-                command += ['-out'] + [str(output)]
+                command += ['-out']
+                if isinstance(output, list):
+                    command.extend(str(i) for i in output)
+                else:
+                    command.append(str(output))
             if ini is not None:
                 if isinstance(ini, list):
                     if not len(ini) == 1:
@@ -197,7 +205,7 @@ rule MSGFPlusIndex:
     output: "DecoyDatabase/database.canno"
     shell:
         "java -Xmx3500M -cp ../usr/MSGFPlus.jar " +
-            "edu.ucsd.msjava.msdbsearch.BuildSA -d {input}"
+            "edu.ucsd.msjava.msdbsearch.BuildSA -tda 0 -d {input}"
 
 
 rule XTandemAdapter:
