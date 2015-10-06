@@ -89,10 +89,10 @@ class OpenMS:
             if extra_args is None:
                 extra_args = []
             if logfile is None:
-                if output is None:
+                if not output:
                     identifier = str(uuid.uuid4())
                 else:
-                    identifier = os.path.basename(str(output))
+                    identifier = os.path.basename(output[0])
                 logfile = '{}_{}'.format(name, identifier)
 
             command = [pjoin(self._bin_path, name)]
@@ -281,11 +281,11 @@ rule IDFilter99:
 rule MapAlignerIdentification:
     input: expand("IDFilter99/{name}.idXML", name=INPUT_FILES)
     output:
-        trafo="MapAligner/trafo.trafoXML",
+        trafo=expand("MapAligner/trafo_{name}.trafoXML", name=INPUT_FILES),
         idXMLs=expand("MapAligner/{name}.idXML", name=INPUT_FILES)
     params: params('MapAlignerIdentification')
     run:
-        extra = ['-trafo_out', str(output['trafo'])]
+        extra = ['-trafo_out'] + [str(i) for i in output['trafo']]
         openms.MapAlignerIdentification(
             input, output.idXMLs, extra_args=extra, ini=params
         )
@@ -293,7 +293,7 @@ rule MapAlignerIdentification:
 
 rule MapRTTransformer:
     input:
-        trafo="MapAligner/trafo.trafoXML",
+        trafo="MapAligner/trafo_{name}.trafoXML",
         mzml=data("{name}.mzML")
     output: "MapRTTransformer/{name}.mzML"
     params: params('MapRTTransformer')
@@ -306,7 +306,7 @@ rule MapRTTransformer:
         
 rule MapRTTransformerID:
     input:
-        trafo="MapAligner/trafo.trafoXML",
+        trafo="MapAligner/trafo_{name}.trafoXML",
         idxml=expand("ConsensusID/{name}.idXML", name=INPUT_FILES)
     output: "MapRTTransformerID/{name}.idXML"
     params: params('MapRTTransformer')
