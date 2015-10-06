@@ -192,6 +192,14 @@ rule DecoyDatabase:
             openms.DecoyDatabase(input, output, ini=params)
 
 
+rule MSGFPlusIndex:
+    input: "DecoyDatabase/database.fasta"
+    output: "DecoyDatabase/database.canno"
+    shell:
+        "java -Xmx3500M -cp ../usr/MSGFPlus.jar " +
+            "edu.ucsd.msjava.msdbsearch.BuildSA -d {input}"
+
+
 rule XTandemAdapter:
     input: fasta=rules.DecoyDatabase.output, mzml=data("{name}.mzML")
     output: "XTandemAdapter/{name}.idXML"
@@ -207,7 +215,10 @@ rule XTandemAdapter:
 
 
 rule MSGFPlusAdapter:
-    input: fasta=rules.DecoyDatabase.output, mzml=data("{name}.mzML")
+    input:
+        fasta="DecoyDatabase/database.fasta",
+        index="DecoyDatabase/database.canno",
+        mzml=data("{name}.mzML")
     output: "MSGFPlusAdapter/{name}.idXML"
     params: params('MSGFPlusAdapter')
     run:
