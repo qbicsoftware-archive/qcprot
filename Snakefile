@@ -34,6 +34,12 @@ LOGS = config['logs']
 REF = config['ref']
 INI_PATH = config['etc']
 
+def data(path):
+    return os.path.join(DATA, path)
+    
+def result(path):
+    return os.path.join(RESULT, path)
+
 if 'params' not in config:
     config['params'] = {}
 
@@ -122,9 +128,11 @@ for name in os.listdir(DATA):
 
 
 rule all:
-    input: expand("{result}/{name}.html", name=INPUT_FILES, result=RESULT), \
-           expand("{result}/{name}.idXML", name=INPUT_FILES, result=RESULT), \
-           expand("InjectionTime/{name}.csv", name=INPUT_FILES)
+    input:
+        result("proteins.idXML"),
+        result("proteins.csv"),
+        result("peptides.csv")
+
 
 rule FileFilter:
     input: os.path.join(DATA, "{name}.mzML")
@@ -141,7 +149,7 @@ rule InjectionTime:
         mses = []
         retentions = []
 
-        parser = ElementTree.iterparse(input[0], ["start", "end"])
+        parser = ElementTree.iterparse(input[0], ("start", "end"))
         _, root = next(parser)
 
         for event, elem in parser:
@@ -160,22 +168,6 @@ rule InjectionTime:
             f.write(",".join(["time", "mslevel", "rt"]) + "\n")
             for data in zip(times, mses, retentions):
                 f.write(",".join(data) + "\n")
-
-
-rule PeakPicker:
-    input: "FileFilter/{name}.mzML"
-    output: "PeakPicker/{name}.mzML"
-    params: params('PeakPickerHiRes')
-    run:
-        openms.PeakPickerHiRes(input, output, ini=params)
-
-
-rule FeatureFinderCentroided:
-    input: "PeakPicker/{name}.mzML"
-    output: "FeatureFinderCentroided/{name}.featureXML"
-    params: params('FeatureFinderCentroided')
-    run:
-        openms.FeatureFinderCentroided(input, output, ini=params)
 
 
 rule CombineFastas:
@@ -201,7 +193,7 @@ rule DecoyDatabase:
 
 
 rule XTandemAdapter:
-    input: fasta=rules.DecoyDatabase.output, mzml="PeakPicker/{name}.mzML"
+    input: fasta=rules.DecoyDatabase.output, mzml=data("{name}.mzML")
     output: "XTandemAdapter/{name}.idXML"
     params: params('XTandemAdapter')
     run:
@@ -214,49 +206,137 @@ rule XTandemAdapter:
         openms.XTandemAdapter(input.mzml, output, extra_args=extra, ini=params)
 
 
-rule IDPosteriorError:
-    input: "XTandemAdapter/{name}.idXML"
-    output: "IDPosteriorXTandem/{name}.idXML"
-    params: params('IDPosteriorErrorProbability')
+rule MSGFPlusAdapter:
+    input: fasta=rules.DecoyDatabase.output, mzml=data("{name}.mzML")
+    output: "MSGFPlusAdapter/{name}.idXML"
+    params: params('MSGFPlusAdapter')
     run:
-        openms.IDPosteriorErrorProbability(input, output, ini=params)
+        extra = ['-database', str(input.fasta)]
+        openms.MSGFPlusAdapter(
+            input.mzml, output, extra_args=extra, ini=params
+        )
 
 
-rule PeptideIndexer:
+rule IDPosteriorError:
+    input: "{tool}/{name}.idXML"
+    output: "IDPosteriorError_{tool}/{name}.idXML"
+    params: params('IDPosteriorErrorProbability')
+    run: openms.IDPosteriorErrorProbability(input, output, ini=params)
+
+
+rule ConsensusID:
+    input:
+        tandem="IDPosteriorError_XTandemAdapter/{name}.idXML",
+        msgf="IDPosteriorError_MSGFPlusAdapter/{name}.idXML"
+    output: "ConsensusID/{name}.idXML"
+    params: params('ConsensusID')
+    run: openms.ConsensusID(input, output, ini=params)
+
+
+rule IDFilter99:
+    input: "ConsensusID/{name}.idXML"
+    output: "IDFilter99/{name}.idXML"
+    params: params('IDFilter99')
+    run: openms.IDFilter(input, output, ini=params)
+
+
+rule MapAlignerIdentification:
+    input: expand("IDFilter99/{name}.idXML", name=INPUT_FILES)
+    output:
+        trafo="MapAligner/trafo.trafoXML",
+        idXMLs=expand("MapAligner/{name}.idXML", name=INPUT_FILES)
+    params: params('MapAlignerIdentification')
+    run:
+        extra = ['-trafo_out', str(output['trafo'])]
+        openms.MapAlignerIdentification(
+            input, output.idXMLs, extra_args=extra, ini=params
+        )
+
+
+rule MapRTTransformer:
+    input:
+        trafo="MapAligner/trafo.trafoXML",
+        mzml=data("{name}.mzML")
+    output: "MapRTTransformer/{name}.mzML"
+    params: params('MapRTTransformer')
+    run:
+        extra = ['-trafo_in', input.trafo]
+        openms.MapRTTransformer(
+            input.mzml, output, extra_args=extra, ini=params
+        )
+        
+        
+rule MapRTTransformerID:
+    input:
+        trafo="MapAligner/trafo.trafoXML",
+        idxml=expand("ConsensusID/{name}.idXML", name=INPUT_FILES)
+    output: "MapRTTransformerID/{name}.idXML"
+    params: params('MapRTTransformer')
+    run:
+        extra = ['-trafo_in', input.trafo]
+        openms.MapRTTransformer(
+            input.mzml, output, extra_args=extra, ini=params
+        )
+
+
+rule IDMerger_all:
+    input: expand("MapRTTransformerID/{name}.idXML", name=INPUT_FILES)
+    output: "IDMerger_all/all.idXML"
+    params: params('IDMerger_all')
+    run:
+        openms.IDMerger(input, output, ini=params)
+
+
+rule IDFilter:
+    input: "IDMerger_all/all.idXML"
+    output: "IDMerger_all/filtered.idXML"
+    params: params('IDFilter60')
+    run: openms.IDFilter(input, output, ini=params)
+
+
+rule FeatureFinderIdentification:
+    input:
+        id="IDMerger_all/filtered.idXML",
+        mzml="MapRTTransformer/{name}.mzML"
+    output: "FeatureFinderID/{name}.featureXML"
+    params: params('FeatureFinderIdentification')
+    run:
+        extra = ['-id', str(input.id)]
+        openms.FeatureFinderIdentification(input.mzml, output, ini=params,
+                                           extra_args=extra)
+
+
+rule PeptideIndexer_all:
     input: fasta=rules.DecoyDatabase.output, \
-           idxml="IDPosteriorXTandem/{name}.idXML"
-    output: "PeptideIndexer/{name}.idXML"
+           idxml="IDMerger_all/filtered.idXML"
+    output: "PeptideIndexer/all.idXML"
     params: params('PeptideIndexer')
     run:
         extra=['-fasta', str(input.fasta)]
         openms.PeptideIndexer(input.idxml, output, extra_args=extra, ini=params)
 
 
-rule FalseDiscoveryRate:
-    input: "PeptideIndexer/{name}.idXML"
-    output: "FalseDiscoveryRate/{name}.idXML"
-    params: params('FalseDiscoveryRate')
+rule Fido:
+    input: "PeptideIndexer/all.idXML"
+    output: result("proteins.idXML")
+    params: params('FidoAdapter')
+    run: openms.FidoAdapter(input, output, ini=params)
+
+
+rule ProteinQuantifier:
+    input:
+        ms1=expand("FeatureFinderID/{name}.featureXML", name=INPUT_FILES),
+        groups=result("proteins.idXML")
+    output:
+        proteins=result("proteins.csv"),
+        peptides=result("peptides.csv")
+    params: params('ProteinQuantifier')
     run:
-        openms.FalseDiscoveryRate(input, output, ini=params)
-
-
-rule IDFilter:
-    input: "FalseDiscoveryRate/{name}.idXML"
-    output: "IDFilter/{name}.idXML", os.path.join(RESULT, "{name}.idXML")
-    params: params('IDFilter')
-    run:
-        openms.IDFilter(input, output[0], ini=params)
-        os.link(str(input), str(output[1]))
-
-
-rule IDMapper:
-    input: feature="FeatureFinderCentroided/{name}.featureXML", \
-           idxml="IDFilter/{name}.idXML"
-    output: 'IDMapper/{name}.featureXML'
-    params: params('IDMapper')
-    run:
-        extra = ['-id', str(input.idxml)]
-        openms.IDMapper(input.feature, output, extra_args=extra, ini=params)
+        extra = [
+            '-protein_groups', str(input['groups']),
+            '-peptide_out', str(output['peptides'])
+        ]
+        openms.ProteinQuantifier(input, output, ini=params, extra_args=extra)
 
 
 rule QCCalculator:
