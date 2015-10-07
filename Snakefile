@@ -307,13 +307,13 @@ rule MapRTTransformer:
 rule MapRTTransformerID:
     input:
         trafo="MapAligner/trafo_{name}.trafoXML",
-        idxml=expand("ConsensusID/{name}.idXML", name=INPUT_FILES)
+        idxml="ConsensusID/{name}.idXML"
     output: "MapRTTransformerID/{name}.idXML"
     params: params('MapRTTransformer')
     run:
         extra = ['-trafo_in', input.trafo]
         openms.MapRTTransformer(
-            input.mzml, output, extra_args=extra, ini=params
+            input.idxml, output, extra_args=extra, ini=params
         )
 
 
