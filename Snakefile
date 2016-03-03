@@ -133,25 +133,38 @@ rule FileFilter:
         openms.FileFilter(input, output, extra_args=['-sort'])
 
 
-rule InjectionTime:
+rule MSML_metadata:
     input: os.path.join(DATA, "{name}.mzML")
-    output: "InjectionTime/{name}.csv"
+    output: "InjectionTime/{name}.csv", "metadata_{name}.json"
     run:
         times = []
         mses = []
         retentions = []
 
+        ElementTree.register_namespace('', "http://psi.hupo.org/ms/mzml")
         parser = ElementTree.iterparse(input[0], ["start", "end"])
         _, root = next(parser)
+        instrument_name = None
+        instrument_serial = None
+        timestamp = None
 
         for event, elem in parser:
-            if event == "end" and elem.tag == "{http://psi.hupo.org/ms/mzml}spectrum":
+            if event == "start" and elem.tag == "run":
+                timestamp = elem.get('startTimeStamp', None)
+            elif event == "end" and elem.tag == "instrumentConfiguration":
+                param_elem = elem.find('.//cvParam[@accession=1000556]')
+                if param_elem is not None:
+                    instrument_name = param_elem.get('name', None)
+                param_elem = elem.find('.//cvParam[@accession=1000529]')
+                if param_elem is not None:
+                    instrument_serial = param_elem.get('value', None)
+            elif event == "end" and elem.tag == "spectrum":
                 try:
-                    injection_time = elem.find('.//{http://psi.hupo.org/ms/mzml}cvParam[@accession="MS:1000927"]').get("value")
+                    injection_time = elem.find('.//cvParam[@accession="MS:1000927"]').get("value")
                     times.append(injection_time)
-                    ms = elem.find("{http://psi.hupo.org/ms/mzml}cvParam[@accession='MS:1000511']").get('value')
+                    ms = elem.find("cvParam[@accession='MS:1000511']").get('value')
                     mses.append(ms)
-                    ret = elem.find('.//{http://psi.hupo.org/ms/mzml}cvParam[@accession="MS:1000016"]').get('value')
+                    ret = elem.find('.//cvParam[@accession="MS:1000016"]').get('value')
                     retentions.append(ret)
                 except AttributeError:
                     pass
@@ -160,6 +173,16 @@ rule InjectionTime:
             f.write(",".join(["time", "mslevel", "rt"]) + "\n")
             for data in zip(times, mses, retentions):
                 f.write(",".join(data) + "\n")
+        with open(output[1], "w") as f:
+            json.dump(
+                {
+                    "instrument_name": instrument_name,
+                    "instrument_serial": instrument_serial,
+                    "timestamp": timestamp
+                },
+                f,
+                indent=4,
+            )
 
 
 rule PeakPicker:
